@@ -1,0 +1,3 @@
+import pinggy
+
+print("Hello")
