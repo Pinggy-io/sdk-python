@@ -84,7 +84,7 @@ setup(
     version='1.0.0',
     packages=find_packages(),
     include_package_data=True,
-    # package_data={'pinggy': },
+    package_data={"pinggy": ["*.so", "*.dll", "*.dylib"]},
     description='Cross-platform shared library package',
     author='Bishnu Thakur',
     license='MIT',
