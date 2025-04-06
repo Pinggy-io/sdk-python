@@ -1,3 +1,0 @@
-import pinggy
-
-print("Hello")
