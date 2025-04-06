@@ -2,3 +2,4 @@ build/
 dist/
 lib/
 __pycache__
+bin
