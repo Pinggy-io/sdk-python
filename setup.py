@@ -6,8 +6,6 @@ from setuptools import setup, find_packages
 from setuptools.dist import Distribution
 from setuptools.command.build_py import build_py
 
-VERSION = "v0.1"
-BASE_URL = f"http://127.0.0.1:8000/{VERSION}/"
 
 PLATFORM_FILES = {
     'linux-x86_64': 'libpinggy.so',
@@ -31,6 +29,12 @@ class CustomBuild(build_py):
         system = None
         arch = None
         
+        VERSION = "v0.1"
+        DEFAULT_URL = f"http://127.0.0.1:8000/"
+        BASE_URL = None
+        
+        # target_plat = os.environ.get("TARGET_PLAT")
+        
         for arg in sys.argv:
             if arg.startswith("--plat-name="):
                 plat = arg.split("=")[-1].lower()
@@ -38,27 +42,33 @@ class CustomBuild(build_py):
                     system, arch = plat.split("-") 
                 elif "macos" in plat:
                     system, arch = "darwin", "universal"       
-            else:
-                platform_key = sysconfig.get_platform().lower()
-                system, _,arch = platform_key.partition("-")
+            elif arg.startswith("--lib-server="):
+                BASE_URL = arg.split("=")[-1].lower()
+            
+        if system is None:
+            platform_key = sysconfig.get_platform().lower()
+            system, _,arch = platform_key.partition("-")
+            
+        if BASE_URL is None:
+            BASE_URL = os.environ.get("LIB_PINGGY_SERVER",DEFAULT_URL)
             
         arch = arch_map.get(arch, arch) 
         
-        print(f"platform = {platform_key}\narc={arch}")
+        print(f"platform = {system}\narch={arch}")
         
         url = None
         dest_path = None
         
         if(system == "linux"):
-            url = f"{BASE_URL}{system}/{arch}/libpinggy.so"
+            url = f"{BASE_URL}{VERSION}/{system}/{arch}/libpinggy.so"
             dest_path = os.path.join('pinggy', "libpinggy.so")
             print(f"[+] Downloading libpinggy.so from {url}")
         elif(system == "win"):
-            url = f"{BASE_URL}{system}/{arch}/pinggy.dll"
+            url = f"{BASE_URL}{VERSION}/{system}/{arch}/pinggy.dll"
             dest_path = os.path.join('pinggy', "pinggy.dll")
             print(f"[+] Downloading pinggy.dll from {url}")
         elif(system == "darwin"):
-            url = f"{BASE_URL}{system}/{arch}/libpinggy.dylib"
+            url = f"{BASE_URL}{VERSION}/{system}/{arch}/libpinggy.dylib"
             dest_path = os.path.join('pinggy', "libpinggy.dylib")
             print(f"[+] Downloading libpinggy.dylib from {url}")
         
