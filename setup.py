@@ -1,4 +1,4 @@
-#setup.py may depricate-https://blog.ganssle.io/articles/2021/10/setup-py-deprecated.html
+# setup.py may depricate-https://blog.ganssle.io/articles/2021/10/setup-py-deprecated.html
 
 import os
 import sysconfig
@@ -24,12 +24,25 @@ class custom_bdist_wheel(_bdist_wheel):
             plat = self.plat_name
 
         # Returing wheel name parameters- impl_tag, abi_tag, plat_tag
-        if(plat.startswith("mac")):
-            return ("cp310", "abi3", "macosx_11_0_universal2") #dev_pinggy-1.0.0-cp310-abi3-macosx_11_0_universal2
-        elif(plat.startswith("linux")):
-            return ("cp310", "abi3", "manylinux_2_28_"+arch) #dev_pinggy-1.0.0-cp310-abi3-manylinux_2_28_{architecture}
-        elif(plat.startswith("win")):
-            return ("cp310", "abi3", self.plat_name) #dev_pinggy-1.0.0-cp310-abi3-win-{architecture}
+        if plat.startswith("mac"):
+            return (
+                "cp310",
+                "abi3",
+                "macosx_11_0_universal2",
+            )  # dev_pinggy-1.0.0-cp310-abi3-macosx_11_0_universal2
+        elif plat.startswith("linux"):
+            return (
+                "cp310",
+                "abi3",
+                "manylinux_2_28_" + arch,
+            )  # dev_pinggy-1.0.0-cp310-abi3-manylinux_2_28_{architecture}
+        elif plat.startswith("win"):
+            return (
+                "cp310",
+                "abi3",
+                self.plat_name,
+            )  # dev_pinggy-1.0.0-cp310-abi3-win-{architecture}
+
 
 arch_map = {
     "2_28-x86_64": "x86_64",
@@ -61,8 +74,8 @@ def get_shared_libraries():
     if system is None:
         platform_key = sysconfig.get_platform().lower()
         system, _, arch = platform_key.partition("-")
-        
-    #Trying to fetch LibPinggy base_url from environment variable
+
+    # Trying to fetch LibPinggy base_url from environment variable
     if BASE_URL is None:
         BASE_URL = os.environ.get("LIB_PINGGY_SERVER", DEFAULT_URL)
 
@@ -74,13 +87,13 @@ def get_shared_libraries():
     dest_path = None
     src = None
     package_files = []
-    
-    #Download lib files for binary distributon only
+
+    # Download lib files for binary distributon only
     if "bdist_wheel" in sys.argv:
         dest_dir = "pinggy/bin"
         os.makedirs(dest_dir, exist_ok=True)
 
-        #Downloading library file according to OS
+        # Downloading library file according to OS
         if system == "linux":
             src = "libpinggy.so"
             url = f"{BASE_URL}/{VERSION}/{system}/{arch}/libpinggy.so"
@@ -121,7 +134,7 @@ setup(
     package_data={"pinggy": get_shared_libraries()},
     description="Tunneling tool",
     author="Bishnu Thakur",
-    license="MIT",
+    license="Apache 2.0",
     distclass=BinaryDistribution,
     cmdclass={"bdist_wheel": custom_bdist_wheel},
     zip_safe=False,

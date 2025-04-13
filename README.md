@@ -59,7 +59,11 @@ export LIB_PINGGY_SERVER=http://lib_pinggy_server.com/
 ## Example Usage
 ```
 python setup.py bdist_wheel --plat-name=win-amd64
+```
+```
 python setup.py bdist_wheel --plat-name=linux-x86_64
+```
+```
 python setup.py bdist_wheel --plat-name=macosx-universal
 ```
 
