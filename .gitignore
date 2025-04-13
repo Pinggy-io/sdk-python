@@ -3,3 +3,5 @@ dist/
 lib/
 __pycache__
 bin
+venv
+pinggy/bin

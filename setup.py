@@ -9,22 +9,27 @@ import ssl
 from setuptools import setup, find_packages
 from setuptools.dist import Distribution
 from wheel.bdist_wheel import bdist_wheel as _bdist_wheel
+from urllib.parse import urljoin
 
+def parse_platname_and_arch(platform_key):
+    if (platform_key.startswith("mac")):
+        system, _, arch = platform_key.split("-")
+    else:
+        system, arch = platform_key.split("-")
+    return system, arch
 
 class custom_bdist_wheel(_bdist_wheel):
-    # Meaning of these tags are defined in - https://peps.python.org/pep-0425/
+    # Meaning of these tags in wheel file name are defined in - https://peps.python.org/pep-0425/
     def get_tag(self):
         plat = None
         arch = None
 
         # Extracting OS and architecture from --plat-name={OS}-{architecture}
         if "-" in self.plat_name:
-            plat, arch = self.plat_name.split("-")
-        else:
-            plat = self.plat_name
+            plat, arch = parse_platname_and_arch(self.plat_name)
 
         # Returing wheel name parameters- impl_tag, abi_tag, plat_tag
-        if plat.startswith("mac"):
+        if plat.startswith("macosx"):
             return (
                 "cp310",
                 "abi3",
@@ -68,12 +73,12 @@ def get_shared_libraries():
             plat = arg.split("=")[-1].lower()
             if "-" in plat:
                 system, arch = plat.split("-")
-            elif "macos" in plat:
-                system, arch = "darwin", "universal"
+            elif "macosx" in plat:
+                system, arch = "macosx", "universal"
 
     if system is None:
         platform_key = sysconfig.get_platform().lower()
-        system, _, arch = platform_key.partition("-")
+        system, arch = parse_platname_and_arch(platform_key)
 
     # Trying to fetch LibPinggy base_url from environment variable
     if BASE_URL is None:
@@ -85,7 +90,7 @@ def get_shared_libraries():
 
     url = None
     dest_path = None
-    src = None
+    libfilename = None
     package_files = []
 
     # Download lib files for binary distributon only
@@ -95,20 +100,16 @@ def get_shared_libraries():
 
         # Downloading library file according to OS
         if system == "linux":
-            src = "libpinggy.so"
-            url = f"{BASE_URL}/{VERSION}/{system}/{arch}/libpinggy.so"
-            dest_path = os.path.join(dest_dir, os.path.basename(src))
-            print(f"[+] Downloading libpinggy.so from {url}")
+            libfilename = "libpinggy.so"
         elif system == "win":
-            src = "pinggy.dll"
-            url = f"{BASE_URL}/{VERSION}/{system}/{arch}/pinggy.dll"
-            dest_path = os.path.join(dest_dir, os.path.basename(src))
-            print(f"[+] Downloading pinggy.dll from {url}")
-        elif system == "darwin":
-            src = "libpinggy.dylib"
-            url = f"{BASE_URL}/{VERSION}/{system}/{arch}/libpinggy.dylib"
-            dest_path = os.path.join(dest_dir, os.path.basename(src))
-            print(f"[+] Downloading libpinggy.dylib from {url}")
+            libfilename = "pinggy.dll"
+        elif system == "macosx":
+            libfilename = "libpinggy.dylib"
+        else:
+            raise f"Unsupported system: {system}"
+        url = urljoin(BASE_URL, f"{VERSION}/{system}/{arch}/{libfilename}")
+        dest_path = os.path.join(dest_dir, os.path.basename(libfilename))
+        print(f"[+] Downloading {libfilename} from {url}")
 
         ssl_context = ssl._create_unverified_context()  # for test purpose only
         # urllib.request.urlretrieve(url, dest_path, context=ssl_context)
