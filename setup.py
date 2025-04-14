@@ -3,13 +3,11 @@
 import os
 import sysconfig
 import sys
-import urllib.request
-from urllib.request import urlopen
-import ssl
 from setuptools import setup, find_packages
 from setuptools.dist import Distribution
 from wheel.bdist_wheel import bdist_wheel as _bdist_wheel
 from urllib.parse import urljoin
+import requests
 
 def parse_platname_and_arch(platform_key):
     if (platform_key.startswith("mac")):
@@ -110,15 +108,16 @@ def get_shared_libraries():
         url = urljoin(BASE_URL, f"{VERSION}/{system}/{arch}/{libfilename}")
         dest_path = os.path.join(dest_dir, os.path.basename(libfilename))
         print(f"[+] Downloading {libfilename} from {url}")
-
-        ssl_context = ssl._create_unverified_context()  # for test purpose only
-        # urllib.request.urlretrieve(url, dest_path, context=ssl_context)
-        with urlopen(url, context=ssl_context) as response, open(
-            dest_path, "wb"
-        ) as out_file:
-            out_file.write(response.read())
-        package_files.append(dest_path)
-        # package_files.append(f"bin/{os.path.basename(src)}")
+        
+        with requests.get(url, stream=True) as r:
+            r.raise_for_status()
+            with open(dest_path, 'wb') as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+                        
+        package_files.append(f"bin/{os.path.basename(libfilename)}")
+    print(package_files)
     return package_files
 
 
