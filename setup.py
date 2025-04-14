@@ -70,7 +70,7 @@ def get_shared_libraries():
         if arg.startswith("--plat-name="):
             plat = arg.split("=")[-1].lower()
             if "-" in plat:
-                system, arch = plat.split("-")
+                system, arch = parse_platname_and_arch(plat)
             elif "macosx" in plat:
                 system, arch = "macosx", "universal"
 
