@@ -1,38 +1,8 @@
 import ctypes
 import threading
-import platform
-import os
-import sys
+from .loader import cdll
 
 pinggy_thread_local_data = threading.local()
-
-# Get package directory
-package_dir = os.path.dirname(os.path.abspath(__file__))
-
-# Determine OS and architecture
-system = platform.system().lower()
-machine = platform.machine().lower()
-
-# Mapping system to correct shared library name
-lib_name = {
-    "windows": "pinggy.dll",
-    "linux": "libpinggy.so",
-    "darwin": "libpinggy.dylib",
-}.get(system)
-
-# Locate the shared library dynamically
-lib_path = os.path.join(package_dir, "bin", lib_name)
-
-# Ensure the shared library exists
-if not os.path.exists(lib_path):
-    sys.exit(f"Shared library missing: `{lib_path}`")
-
-# Load the shared library
-try:
-    cdll = ctypes.CDLL(lib_path)
-except Exception as err:
-    sys.exit(f"Failed to load shared library. Ensure dependencies like OpenSSL are installed if required.\n{err}")
-
 
 def pinggy_error_check(a, b, c):
     err = None
@@ -147,6 +117,11 @@ pinggy_tunnel_channel_get_dest_port                         = cdll.pinggy_tunnel
 pinggy_tunnel_channel_get_dest_host                         = cdll.pinggy_tunnel_channel_get_dest_host
 pinggy_tunnel_channel_get_src_port                          = cdll.pinggy_tunnel_channel_get_src_port
 pinggy_tunnel_channel_get_src_host                          = cdll.pinggy_tunnel_channel_get_src_host
+pinggy_version                                              = cdll.pinggy_version
+pinggy_git_commit                                           = cdll.pinggy_git_commit
+pinggy_build_timestamp                                      = cdll.pinggy_build_timestamp
+pinggy_libc_version                                         = cdll.pinggy_libc_version
+pinggy_build_os                                             = cdll.pinggy_build_os
 
 
 #==========
@@ -354,6 +329,24 @@ pinggy_tunnel_channel_get_dest_port.argtypes                        = [pinggy_re
 pinggy_tunnel_channel_get_dest_host.argtypes                        = [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t]
 pinggy_tunnel_channel_get_src_port.argtypes                         = [pinggy_ref_t]
 pinggy_tunnel_channel_get_src_host.argtypes                         = [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t]
+#========
+pinggy_version.errcheck                                             = pinggy_error_check
+pinggy_git_commit.errcheck                                          = pinggy_error_check
+pinggy_build_timestamp.errcheck                                     = pinggy_error_check
+pinggy_libc_version.errcheck                                        = pinggy_error_check
+pinggy_build_os.errcheck                                            = pinggy_error_check
+
+pinggy_version.restype                                              = pinggy_const_int_t
+pinggy_git_commit.restype                                           = pinggy_const_int_t
+pinggy_build_timestamp.restype                                      = pinggy_const_int_t
+pinggy_libc_version.restype                                         = pinggy_const_int_t
+pinggy_build_os.restype                                             = pinggy_const_int_t
+
+pinggy_version.argtypes                                             = [pinggy_capa_t, pinggy_char_p_t]
+pinggy_git_commit.argtypes                                          = [pinggy_capa_t, pinggy_char_p_t]
+pinggy_build_timestamp.argtypes                                     = [pinggy_capa_t, pinggy_char_p_t]
+pinggy_libc_version.argtypes                                        = [pinggy_capa_t, pinggy_char_p_t]
+pinggy_build_os.argtypes                                            = [pinggy_capa_t, pinggy_char_p_t]
 #========
 
 def pinggy_raise_exception(etype, ewhat):
