@@ -9,7 +9,7 @@ pinggy/
 ├── __init__.py
 ├── pinggy.h
 └── pylib.py
-setup.py 
+setup.py
 ```
 
 ## 🛠️ Requirements
@@ -17,7 +17,7 @@ setup.py
 - Python 3.6+
 - `wheel` and `setuptools`
 > ```bash
->    pip install wheel setuptools     
+>    pip install wheel setuptools requests
 > ```
 - Shared libraries (`.so`, `.dll`, `.dylib`) hosted on an HTTP server
     ### Structure
