@@ -18,53 +18,88 @@ PINGGY_LIB_VERSION = "0.0.8"
 BASE_URL = f"https://public-pre-built-libraries.s3.us-east-2.amazonaws.com/libpinggy/{PINGGY_LIB_VERSION}"
 
 def parse_platname_and_arch(platform_key):
+
+    defaultsKeys = {
+        "macosx-universal" : ("macosx", "universal"),
+        "linux-aarch64"    : ("linux", "aarch64"),
+        "linux-arm7l"      : ("linux", "armv7"),
+        "linux-i686"       : ("linux", "i686"),
+        "linux-x86_64"     : ("linux", "x86_64"),
+        "win-amd64"        : ("win", "x86_64"),
+        "win-arm64"        : ("win", "aarch64"),
+        "win32"            : ("win", "i686"),
+    }
+
+    if platform_key in defaultsKeys:
+        return defaultsKeys[platform_key]
+
+
+    arch_map = {
+        "2_28-x86_64": "x86_64",
+        "amd64": "x86_64",
+        "x86_64": "x86_64",
+        "i386": "i686",
+        "win32": "i686",
+        "armv7l": "armv7",
+        "arm64": "aarch64",
+    }
+
+    # raise RuntimeError(f"unsupported platform ${platform_key}")
+
     if (platform_key.startswith("mac")):
         system, arch = "macosx", "universal"
         # system, _, arch = platform_key.split("-")
     else:
         system, arch = platform_key.split("-")
-    return system, arch
+
+    return system, arch_map.get(arch, arch)
 
 class custom_bdist_wheel(_bdist_wheel):
     # Meaning of these tags in wheel file name are defined in - https://peps.python.org/pep-0425/
     def get_tag(self):
-        plat = None
-        arch = None
+        # plat = None
+        # arch = None
+
+
+        supported_platforms = {
+            "macosx-universal" : "macosx_11_0_universal2",
+            "linux-aarch64"    : "manylinux_2_28_aarch64",
+            "linux-arm7l"      : "manylinux_2_28_armv7l",
+            "linux-i686"       : "manylinux_2_28_i386",
+            "linux-x86_64"     : "manylinux_2_28_x86_64",
+            "win-amd64"        : "win_amd64",
+            "win-arm64"        : "win_arm64",
+            "win32"            : "win32",
+        }
 
         # Extracting OS and architecture from --plat-name={OS}-{architecture}
-        if "-" in self.plat_name:
-            plat, arch = parse_platname_and_arch(self.plat_name)
+        # if "-" in self.plat_name:
+        #     plat, arch = parse_platname_and_arch(self.plat_name)
 
-        # Returing wheel name parameters- impl_tag, abi_tag, plat_tag
-        if plat.startswith("macosx"):
-            return (
-                "cp310",
-                "abi3",
-                "macosx_11_0_universal2",
-            )  # dev_pinggy-1.0.0-cp310-abi3-macosx_11_0_universal2
-        elif plat.startswith("linux"):
-            return (
-                "cp310",
-                "abi3",
-                "manylinux_2_28_" + arch,
-            )  # dev_pinggy-1.0.0-cp310-abi3-manylinux_2_28_{architecture}
-        elif plat.startswith("win"):
-            return (
-                "cp310",
-                "abi3",
-                self.plat_name,
-            )  # dev_pinggy-1.0.0-cp310-abi3-win-{architecture}
+        finalPlatform = supported_platforms.get(self.plat_name, self.plat_name)
 
+        return "cp310", "abi3", finalPlatform,
 
-arch_map = {
-    "2_28-x86_64": "x86_64",
-    "amd64": "x86_64",
-    "x86_64": "x86_64",
-    "i386": "i686",
-    "win32": "i686",
-    "armv7l": "armv7",
-    "arm64": "aarch64",
-}
+        # # Returing wheel name parameters- impl_tag, abi_tag, plat_tag
+        # if finalPlatform.startswith("macosx"):
+        #     return (
+        #         "cp310",
+        #         "abi3",
+        #         finalPlatform,
+        #     )  # dev_pinggy-1.0.0-cp310-abi3-macosx_11_0_universal2
+        # elif finalPlatform.startswith("linux"):
+        #     return (
+        #         "cp310",
+        #         "abi3",
+        #         finalPlatform,
+        #     )  # dev_pinggy-1.0.0-cp310-abi3-manylinux_2_28_{architecture}
+        # elif finalPlatform.startswith("win"):
+        #     return (
+        #         "cp310",
+        #         "abi3",
+        #         finalPlatform,
+        #     )  # dev_pinggy-1.0.0-cp310-abi3-win-{architecture}
+
 
 def download_and_extract_files(system, arch, destination):
     tempDir = tempfile.gettempdir()
@@ -83,7 +118,7 @@ def download_and_extract_files(system, arch, destination):
 
 
     url = f"{base_url}/{file}"
-    caching_dir_path = f"{tempDir}/libpinggy/v{PINGGY_LIB_VERSION}/{arch}"
+    caching_dir_path = f"{tempDir}/libpinggy/v{PINGGY_LIB_VERSION}/{system}/{arch}"
     cached_file_path = f"{caching_dir_path}/{file}"
     destination_file = f"{destination}/{libfilename}"
 
@@ -105,11 +140,11 @@ def download_and_extract_files(system, arch, destination):
         try:
             if cached_file_path.endswith('.zip'):
                 with zipfile.ZipFile(cached_file_path, 'r') as zip_ref:
-                    zip_ref.extractall(destination)
+                    zip_ref.extractall(path=destination)
                 # print(f"Extracted ZIP to {caching_dir_path}")
             elif cached_file_path.endswith(('.tar.gz', '.tgz', '.tar.bz2', '.tar.xz', '.tar')):
                 with tarfile.open(cached_file_path, 'r:*') as tar_ref:
-                    tar_ref.extractall(destination)
+                    tar_ref.extractall(path=destination)
                 # print(f"Extracted TAR to {caching_dir_path}")
             else:
                 sys.exit(f"Unsupported archive format: {cached_file_path}")
@@ -140,8 +175,6 @@ def get_shared_libraries():
     if system is None:
         platform_key = sysconfig.get_platform().lower()
         system, arch = parse_platname_and_arch(platform_key)
-
-    arch = arch_map.get(arch, arch)
 
     print(f"platform = {system}\narch={arch}")
 

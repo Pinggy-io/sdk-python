@@ -67,6 +67,19 @@ python setup.py bdist_wheel --plat-name=linux-x86_64
 python setup.py bdist_wheel --plat-name=macosx-universal
 ```
 
+## Names
+
+| PlatKey | Wheel | Desc |
+| --- | --- | --- |
+| macosx-universal | dev_pinggy-0.0.8-cp310-abi3-macosx_11_0_universal2.whl |   |
+| linux-aarch64    | dev_pinggy-0.0.8-cp310-abi3-manylinux_2_28_aarch64.whl |   |
+| linux-arm7l      | dev_pinggy-0.0.8-cp310-abi3-manylinux_2_28_armv7l.whl |   |
+| linux-i686       | dev_pinggy-0.0.8-cp310-abi3-manylinux_2_28_i386.whl |   |
+| linux-x86_64     | dev_pinggy-0.0.8-cp310-abi3-manylinux_2_28_x86_64.whl |   |
+| win-amd64        | dev_pinggy-0.0.8-cp310-abi3-win_amd64.whl |   |
+| win-arm64        | dev_pinggy-0.0.8-cp310-abi3-win_arm64.whl |   |
+| win32            | dev_pinggy-0.0.8-cp310-abi3-win32.whl |   |
+
 ## License
 
 [LICENSE](./LICENSE)
