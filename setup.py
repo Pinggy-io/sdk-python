@@ -7,7 +7,7 @@ from setuptools import setup, find_packages
 from setuptools.dist import Distribution
 from wheel.bdist_wheel import bdist_wheel as _bdist_wheel
 from urllib.parse import urljoin
-import requests
+# import requests
 import tempfile
 import zipfile
 import tarfile
@@ -47,7 +47,7 @@ def parse_platname_and_arch(platform_key):
     # raise RuntimeError(f"unsupported platform ${platform_key}")
 
     if (platform_key.startswith("mac")):
-        system, arch = "macosx", "universal"
+        return "macosx", "universal"
         # system, _, arch = platform_key.split("-")
     else:
         system, arch = platform_key.split("-")
@@ -60,7 +60,9 @@ class custom_bdist_wheel(_bdist_wheel):
         # plat = None
         # arch = None
 
+        super_plat = super().get_tag()
 
+        # import pdb; pdb.set_trace()
         supported_platforms = {
             "macosx-universal" : "macosx_11_0_universal2",
             "linux-aarch64"    : "manylinux_2_28_aarch64",
@@ -72,21 +74,22 @@ class custom_bdist_wheel(_bdist_wheel):
             "win32"            : "win32",
         }
 
-        # Extracting OS and architecture from --plat-name={OS}-{architecture}
-        # if "-" in self.plat_name:
-        #     plat, arch = parse_platname_and_arch(self.plat_name)
 
         finalPlatform = supported_platforms.get(self.plat_name, self.plat_name)
+        if self.plat_name in supported_platforms:
+            return "cp310", "abi3", finalPlatform,
 
-        return "cp310", "abi3", finalPlatform,
+        # Extracting OS and architecture from --plat-name={OS}-{architecture}
+        if "-" in self.plat_name:
+            plat, arch = parse_platname_and_arch(self.plat_name)
 
-        # # Returing wheel name parameters- impl_tag, abi_tag, plat_tag
-        # if finalPlatform.startswith("macosx"):
-        #     return (
-        #         "cp310",
-        #         "abi3",
-        #         finalPlatform,
-        #     )  # dev_pinggy-1.0.0-cp310-abi3-macosx_11_0_universal2
+        # Returing wheel name parameters- impl_tag, abi_tag, plat_tag
+        if plat.startswith("macosx"):
+            return (
+                "cp310",
+                "abi3",
+                "macosx_11_0_universal2",
+            )  # dev_pinggy-1.0.0-cp310-abi3-macosx_11_0_universal2
         # elif finalPlatform.startswith("linux"):
         #     return (
         #         "cp310",
@@ -99,6 +102,8 @@ class custom_bdist_wheel(_bdist_wheel):
         #         "abi3",
         #         finalPlatform,
         #     )  # dev_pinggy-1.0.0-cp310-abi3-win-{architecture}
+
+        return self.plat_name
 
 
 def download_and_extract_files(system, arch, destination):
