@@ -67,6 +67,10 @@ python setup.py bdist_wheel --plat-name=linux-x86_64
 python setup.py bdist_wheel --plat-name=macosx-universal
 ```
 
+```
+pip install .
+```
+
 ## Names
 
 | PlatKey | Wheel | Desc |
