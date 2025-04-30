@@ -22,10 +22,10 @@ lib_path = os.path.join(package_dir, "bin", lib_name)
 
 # Ensure the shared library exists
 if not os.path.exists(lib_path):
-    sys.exit(f"Shared library missing: `{lib_path}`")
+    raise Exception("Could not find the require native libraries")
 
 # Load the shared library
 try:
     cdll = ctypes.CDLL(lib_path)
 except Exception as err:
-    sys.exit(f"Failed to load shared library. Ensure dependencies like OpenSSL are installed if required.\n{err}")
+    raise Exception("Could not load native library")

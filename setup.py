@@ -57,12 +57,7 @@ def parse_platname_and_arch(platform_key):
 class custom_bdist_wheel(_bdist_wheel):
     # Meaning of these tags in wheel file name are defined in - https://peps.python.org/pep-0425/
     def get_tag(self):
-        # plat = None
-        # arch = None
 
-        super_plat = super().get_tag()
-
-        # import pdb; pdb.set_trace()
         supported_platforms = {
             "macosx-universal" : "macosx_11_0_universal2",
             "linux-aarch64"    : "manylinux_2_28_aarch64",
