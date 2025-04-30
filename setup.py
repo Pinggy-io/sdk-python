@@ -66,7 +66,7 @@ class custom_bdist_wheel(_bdist_wheel):
         supported_platforms = {
             "macosx-universal" : "macosx_11_0_universal2",
             "linux-aarch64"    : "manylinux_2_28_aarch64",
-            "linux-arm7l"      : "manylinux_2_28_armv7l",
+            "linux-armv7l"     : "manylinux_2_28_armv7l",
             "linux-i686"       : "manylinux_2_28_i386",
             "linux-x86_64"     : "manylinux_2_28_x86_64",
             "win-amd64"        : "win_amd64",
