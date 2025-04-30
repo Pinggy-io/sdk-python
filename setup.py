@@ -103,7 +103,7 @@ class custom_bdist_wheel(_bdist_wheel):
         #         finalPlatform,
         #     )  # dev_pinggy-1.0.0-cp310-abi3-win-{architecture}
 
-        return self.plat_name
+        return "cp310", "abi3", self.plat_name
 
 
 def download_and_extract_files(system, arch, destination):
