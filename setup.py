@@ -7,15 +7,16 @@ from setuptools import setup, find_packages
 from setuptools.dist import Distribution
 from wheel.bdist_wheel import bdist_wheel as _bdist_wheel
 from urllib.parse import urljoin
-# import requests
+import requests
 import tempfile
 import zipfile
 import tarfile
 import ssl
 import urllib
+import subprocess
 
-PINGGY_LIB_VERSION = "0.0.8"
-BASE_URL = f"https://public-pre-built-libraries.s3.us-east-2.amazonaws.com/libpinggy/{PINGGY_LIB_VERSION}"
+PINGGY_LIB_VERSION = "0.0.9"
+BASE_URL = f"https://github.com/Pinggy-io/libpinggy/releases/download/v{PINGGY_LIB_VERSION}"
 
 def parse_platname_and_arch(platform_key):
 
@@ -118,6 +119,7 @@ def download_and_extract_files(system, arch, destination):
 
 
     url = f"{base_url}/{file}"
+    print(url)
     caching_dir_path = f"{tempDir}/libpinggy/v{PINGGY_LIB_VERSION}/{system}/{arch}"
     cached_file_path = f"{caching_dir_path}/{file}"
     destination_file = f"{destination}/{libfilename}"
@@ -128,10 +130,16 @@ def download_and_extract_files(system, arch, destination):
         except:
             pass
         try:
-            # print(f"Downloading `{url}` to `{cached_file_path}`")
+            print(f"Downloading `{url}` to `{cached_file_path}`")
             if system == "win":
                 ssl._create_default_https_context = ssl._create_unverified_context
             urllib.request.urlretrieve(url, cached_file_path)
+            # response = requests.get(url, stream=True)
+            # response.raise_for_status()
+            # with open(destination_file, "wb") as f:
+            #     for chunk in response.iter_content(chunk_size=8192):
+            #         if chunk:
+            #             f.write(chunk)
         except Exception as err:
             sys.exit(f"Failed to download shared library `{cached_file_path}` from `{url}`.\n{err}")
 
@@ -196,15 +204,17 @@ class BinaryDistribution(Distribution):
     def has_ext_modules(self):
         return True
 
+def get_version():
+    return subprocess.check_output(['git', 'describe', '--tags', '--abbrev=0']).decode().strip()
 
 setup(
-    name="dev-pinggy",
-    version="0.0.8",
+    name="pinggy",
+    version=get_version(),
     packages=find_packages(),
     include_package_data=True,
     package_data={"pinggy": get_shared_libraries()},
     description="Tunneling tool",
-    author="Abhijit Mondal",
+    author="Pinggy",
     license="Apache 2.0",
     distclass=BinaryDistribution,
     cmdclass={"bdist_wheel": custom_bdist_wheel},
