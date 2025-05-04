@@ -205,7 +205,11 @@ class BinaryDistribution(Distribution):
         return True
 
 def get_version():
-    return subprocess.check_output(['git', 'describe', '--tags', '--abbrev=0']).decode().strip()
+    try:
+        return subprocess.check_output(['git', 'describe', '--tags', '--abbrev=0']).decode().strip()
+    except Exception as e:
+        print("Exception occured while getting tag: ", e)
+        return "0.0.0"
 
 setup(
     name="pinggy",
