@@ -1,38 +1,8 @@
 import ctypes
 import threading
-import platform
-import os
-import sys
+from .loader import cdll
 
 pinggy_thread_local_data = threading.local()
-
-# Get package directory
-package_dir = os.path.dirname(os.path.abspath(__file__))
-
-# Determine OS and architecture
-system = platform.system().lower()
-machine = platform.machine().lower()
-
-# Mapping system to correct shared library name
-lib_name = {
-    "windows": "pinggy.dll",
-    "linux": "libpinggy.so",
-    "darwin": "libpinggy.dylib",
-}.get(system)
-
-# Locate the shared library dynamically
-lib_path = os.path.join(package_dir, "bin", lib_name)
-
-# Ensure the shared library exists
-if not os.path.exists(lib_path):
-    sys.exit(f"Shared library missing: `{lib_path}`")
-
-# Load the shared library
-try:
-    cdll = ctypes.CDLL(lib_path)
-except Exception as err:
-    sys.exit(f"Failed to load shared library. Ensure dependencies like OpenSSL are installed if required.\n{err}")
-
 
 def pinggy_error_check(a, b, c):
     err = None
@@ -127,6 +97,7 @@ pinggy_tunnel_start                                         = cdll.pinggy_tunnel
 pinggy_tunnel_connect                                       = cdll.pinggy_tunnel_connect
 pinggy_tunnel_resume                                        = cdll.pinggy_tunnel_resume
 pinggy_tunnel_stop                                          = cdll.pinggy_tunnel_stop
+pinggy_tunnel_is_active                                     = cdll.pinggy_tunnel_is_active
 pinggy_tunnel_start_web_debugging                           = cdll.pinggy_tunnel_start_web_debugging
 pinggy_tunnel_request_primary_forwarding                    = cdll.pinggy_tunnel_request_primary_forwarding
 pinggy_tunnel_request_additional_forwarding                 = cdll.pinggy_tunnel_request_additional_forwarding
@@ -147,6 +118,11 @@ pinggy_tunnel_channel_get_dest_port                         = cdll.pinggy_tunnel
 pinggy_tunnel_channel_get_dest_host                         = cdll.pinggy_tunnel_channel_get_dest_host
 pinggy_tunnel_channel_get_src_port                          = cdll.pinggy_tunnel_channel_get_src_port
 pinggy_tunnel_channel_get_src_host                          = cdll.pinggy_tunnel_channel_get_src_host
+pinggy_version                                              = cdll.pinggy_version
+pinggy_git_commit                                           = cdll.pinggy_git_commit
+pinggy_build_timestamp                                      = cdll.pinggy_build_timestamp
+pinggy_libc_version                                         = cdll.pinggy_libc_version
+pinggy_build_os                                             = cdll.pinggy_build_os
 
 
 #==========
@@ -193,6 +169,7 @@ pinggy_tunnel_start.errcheck                                        = pinggy_err
 pinggy_tunnel_connect.errcheck                                      = pinggy_error_check
 pinggy_tunnel_resume.errcheck                                       = pinggy_error_check
 pinggy_tunnel_stop.errcheck                                         = pinggy_error_check
+pinggy_tunnel_is_active.errcheck                                    = pinggy_error_check
 pinggy_tunnel_start_web_debugging.errcheck                          = pinggy_error_check
 pinggy_tunnel_request_primary_forwarding.errcheck                   = pinggy_error_check
 pinggy_tunnel_request_additional_forwarding.errcheck                = pinggy_error_check
@@ -238,8 +215,9 @@ pinggy_tunnel_set_new_channel_callback.restype                      = pinggy_boo
 pinggy_tunnel_initiate.restype                                      = pinggy_ref_t
 pinggy_tunnel_start.restype                                         = pinggy_bool_t
 pinggy_tunnel_connect.restype                                       = pinggy_bool_t
-pinggy_tunnel_resume.restypes                                       = pinggy_int_t
-pinggy_tunnel_stop.restypes                                         = pinggy_bool_t
+pinggy_tunnel_resume.restype                                        = pinggy_int_t
+pinggy_tunnel_stop.restype                                          = pinggy_bool_t
+pinggy_tunnel_is_active.restype                                     = pinggy_bool_t
 pinggy_tunnel_start_web_debugging.restype                           = pinggy_uint16_t
 pinggy_tunnel_request_primary_forwarding.restype                    = pinggy_void_t
 pinggy_tunnel_request_additional_forwarding.restype                 = pinggy_void_t
@@ -287,6 +265,7 @@ pinggy_tunnel_start.argtypes                                        = [pinggy_re
 pinggy_tunnel_connect.argtypes                                      = [pinggy_ref_t]
 pinggy_tunnel_resume.argtypes                                       = [pinggy_ref_t]
 pinggy_tunnel_stop.argtypes                                         = [pinggy_ref_t]
+pinggy_tunnel_is_active.argtypes                                    = [pinggy_ref_t]
 pinggy_tunnel_start_web_debugging.argtypes                          = [pinggy_ref_t, pinggy_uint16_t]
 pinggy_tunnel_request_primary_forwarding.argtypes                   = [pinggy_ref_t]
 pinggy_tunnel_request_additional_forwarding.argtypes                = [pinggy_ref_t, pinggy_const_char_p_t, pinggy_const_char_p_t]
@@ -354,6 +333,24 @@ pinggy_tunnel_channel_get_dest_port.argtypes                        = [pinggy_re
 pinggy_tunnel_channel_get_dest_host.argtypes                        = [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t]
 pinggy_tunnel_channel_get_src_port.argtypes                         = [pinggy_ref_t]
 pinggy_tunnel_channel_get_src_host.argtypes                         = [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t]
+#========
+pinggy_version.errcheck                                             = pinggy_error_check
+pinggy_git_commit.errcheck                                          = pinggy_error_check
+pinggy_build_timestamp.errcheck                                     = pinggy_error_check
+pinggy_libc_version.errcheck                                        = pinggy_error_check
+pinggy_build_os.errcheck                                            = pinggy_error_check
+
+pinggy_version.restype                                              = pinggy_const_int_t
+pinggy_git_commit.restype                                           = pinggy_const_int_t
+pinggy_build_timestamp.restype                                      = pinggy_const_int_t
+pinggy_libc_version.restype                                         = pinggy_const_int_t
+pinggy_build_os.restype                                             = pinggy_const_int_t
+
+pinggy_version.argtypes                                             = [pinggy_capa_t, pinggy_char_p_t]
+pinggy_git_commit.argtypes                                          = [pinggy_capa_t, pinggy_char_p_t]
+pinggy_build_timestamp.argtypes                                     = [pinggy_capa_t, pinggy_char_p_t]
+pinggy_libc_version.argtypes                                        = [pinggy_capa_t, pinggy_char_p_t]
+pinggy_build_os.argtypes                                            = [pinggy_capa_t, pinggy_char_p_t]
 #========
 
 def pinggy_raise_exception(etype, ewhat):
