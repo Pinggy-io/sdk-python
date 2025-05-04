@@ -1,8 +1,9 @@
 name: Publish Python Package
 
 on:
-  release:
-    types: [created]
+  push:
+    branches:
+      - main
 
 jobs:
   build-and-publish:
@@ -30,14 +31,8 @@ jobs:
         run: |
           make
 
-      - name: Publish to PyPI
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-        run: |
-          python -m twine upload dist/*
-
-      - name: Upload release artifacts
-        uses: softprops/action-gh-release@v1
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
         with:
-          files: dist/*
+          path: dist/*
+
