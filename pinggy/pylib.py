@@ -11,9 +11,6 @@ def setLogPath(path):
     """
     Set path where native library print its log. Use this function only if requires.
     To disable native library logging completly, use `disableLog` function.
-
-    Returns:
-        None
     """
     path = path if isinstance(path, bytes) else path.encode("utf-8")
     core.pinggy_set_log_path(path)
@@ -21,9 +18,6 @@ def setLogPath(path):
 def disableLog():
     """
     Disable logging by the native library.
-
-    Returns:
-        None
     """
     core.pinggy_set_log_enable(False)
 

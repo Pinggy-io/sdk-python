@@ -6,17 +6,16 @@ import sys
 from setuptools import setup, find_packages
 from setuptools.dist import Distribution
 from wheel.bdist_wheel import bdist_wheel as _bdist_wheel
-from urllib.parse import urljoin
-import requests
 import tempfile
 import zipfile
 import tarfile
 import ssl
 import urllib
 import subprocess
+from pinggy import __version__ as version
 
-PINGGY_LIB_VERSION = "0.0.9"
-BASE_URL = f"https://github.com/Pinggy-io/libpinggy/releases/download/v{PINGGY_LIB_VERSION}"
+PINGGY_LIB_VERSION = version.__lib_pinggy_version
+BASE_URL = f"{version.__lib_pinggy_url_prefix}{PINGGY_LIB_VERSION}"
 
 def parse_platname_and_arch(platform_key):
 
@@ -213,11 +212,13 @@ def get_version():
 
 setup(
     name="pinggy",
-    version=get_version(),
+    version=version.__version__,
     packages=find_packages(),
     include_package_data=True,
     package_data={"pinggy": get_shared_libraries()},
     description="Tunneling tool",
+    long_description=open("API_DOC.md").read(),
+    long_description_content_type="text/markdown",
     author="Pinggy",
     license="Apache 2.0",
     distclass=BinaryDistribution,

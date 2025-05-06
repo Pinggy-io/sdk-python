@@ -1,5 +1,8 @@
 
-all: win linux macos
+all: win linux macos source
+
+source:
+	python3 setup.py sdist
 
 #=================
 
@@ -48,3 +51,5 @@ linux-aarch64:
 	@rm -rf pinggy/bin build *.egg-info || true
 	python3 setup.py bdist_wheel --plat-name=linux-aarch64
 
+clean:
+	rm -rf dist || true
