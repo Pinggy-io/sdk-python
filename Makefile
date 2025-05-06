@@ -1,5 +1,5 @@
 
-all: win linux macos source
+all: win linux macos
 
 source:
 	python3 setup.py sdist
