@@ -136,4 +136,5 @@ def load_native():
 try:
     cdll = defaultLoader()
 except:
+    print("ASdasd")
     cdll = load_native()
