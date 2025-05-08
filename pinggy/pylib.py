@@ -962,6 +962,8 @@ def start_tunnel(
             msg = "\n".join(msg)
         raise Exception("Connection Failed:\n" + msg)
 
+    tun.start(True)
+
     return tun
 
 

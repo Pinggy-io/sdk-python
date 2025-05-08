@@ -70,8 +70,6 @@ def load_native():
     system = platform.system().lower()
     machine = get_architecture()
 
-
-
     file = {
         "linux":   f"libpinggy-{lib_version}-ssl-linux-{machine}.tgz",
         "darwin":  f"libpinggy-{lib_version}-ssl-macos-universal.tgz",
@@ -136,5 +134,4 @@ def load_native():
 try:
     cdll = defaultLoader()
 except:
-    print("ASdasd")
     cdll = load_native()
