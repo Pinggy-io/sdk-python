@@ -3,6 +3,8 @@ import errno
 import ctypes
 import os
 import threading
+import shlex
+import threading
 
 from . import core
 
@@ -11,6 +13,9 @@ def setLogPath(path):
     """
     Set path where native library print its log. Use this function only if requires.
     To disable native library logging completly, use `disableLog` function.
+
+    Args:
+        path (str): New log path. Path needs to have write permission.
     """
     path = path if isinstance(path, bytes) else path.encode("utf-8")
     core.pinggy_set_log_path(path)
@@ -280,7 +285,7 @@ class Tunnel:
         >         |       |
         >         |       `-> additional forwarding succeeded callback
         >         |
-        >         `-> serve_tunnel()
+        >         `-> start()
 
     Flow 2:
 
@@ -326,6 +331,17 @@ class Tunnel:
         self.tunnel_statup_messages                 = []
         self.server_address                         = server_address
 
+        self.__cmd                                  = ""
+        self.__ipwhitelist                          = None
+        self.__basicauth                            = None
+        self.__bearerauth                           = None
+        self.__headermodification                   = None
+        self.__xff                                  = False
+        self.__httpsonly                            = False
+        self.__fullrequesturl                       = False
+        self.__allowpreflight                       = False
+        self.__reverseproxy                         = True
+
         if tcp_forward_to is not None:
             self.tcp_forward_to                     = tcp_forward_to
         if udp_forward_to is not None:
@@ -334,6 +350,8 @@ class Tunnel:
             self.type                               = type
 
         self.__eventHandler                         = eventClass(self)
+
+        self.__thread                               = None
 
         self.__setup_callbacks()
 
@@ -375,10 +393,13 @@ class Tunnel:
         print("Kindly don't use this method")
         core.pinggy_tunnel_start(self.__tunnelRef)
 
-    def start(self):
+    def start(self, thread=False):
         """
         Start the tunnel with the provided configuration. This is a blocking call.
         It does not return unless tunnel stopped externally or some error occures.
+
+        Args:
+            thread (bool): Whether to run the start tunnel in a new thread. Default is False
         """
         self.__editableConfig = False
         self.__auto = True
@@ -387,7 +408,12 @@ class Tunnel:
         if self.__authenticated and not self.__tunnel_started:
             self.__internal_request_primary_forwarding()
         if self.__tunnel_started:
-            self.__start_serving()
+            if thread:
+                t = threading.Thread(target=self.__start_serving)
+                self.__thread = t
+                t.start()
+            else:
+                self.__start_serving()
 
     def connect(self):
         """
@@ -412,6 +438,8 @@ class Tunnel:
             raise Exception("Synchronization error")
         locked = True
 
+        self.__prepare_n_setargument() #set the cmd and seal it
+
         self.__editableConfig = False
         self.__connected = True
         self.__resumable = core.pinggy_tunnel_connect(self.__tunnelRef)
@@ -425,6 +453,9 @@ class Tunnel:
     def stop(self):
         """Stops the running tunnel."""
         core.pinggy_tunnel_stop(self.__tunnelRef)
+        if self.__thread is not None:
+            self.__thread.join()
+            self.__thread = None
 
     def is_active(self):
         """Check if tunnel is active or not."""
@@ -476,6 +507,7 @@ class Tunnel:
     def serve_tunnel(self):
         """
         Final method in the tunnel creation flow. It is again a blocking call.
+        **Deprecated**
         """
         self.__start_serving()
 
@@ -553,7 +585,6 @@ class Tunnel:
         self.__eventHandler.tunnel_error(errorNo, msg, recoverable)
 
     def __func_new_channel(self, userdata, ref, chanRef):
-        print(f"Channel received") # todo
         if not self.__eventHandler.handle_channel():
             return False
         channel = Channel(chanRef)
@@ -622,6 +653,7 @@ class Tunnel:
     @property
     def argument(self):
         """str: tunnel arguments for header manipulation and others."""
+        return self.__cmd
         return core._get_string_via_cfunc(core.pinggy_config_get_argument, self.__configRef)
 
     @property
@@ -677,6 +709,8 @@ class Tunnel:
     def tcp_forward_to(self, val):
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
+        if type(val) == int:
+            val = f"localhost:{val}"
         val = val if isinstance(val, bytes) else val.encode("utf-8")
         core.pinggy_config_set_tcp_forward_to(self.__configRef, val)
 
@@ -684,6 +718,8 @@ class Tunnel:
     def udp_forward_to(self, val):
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
+        if type(val) == int:
+            val = f"localhost:{val}"
         val = val if isinstance(val, bytes) else val.encode("utf-8")
         core.pinggy_config_set_udp_forward_to(self.__configRef, val)
 
@@ -694,11 +730,14 @@ class Tunnel:
         core.pinggy_config_set_force(self.__configRef, val)
 
     @argument.setter
-    def argument(self, val):
+    def argument(self, val: list[str]|str):
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
-        val = val if isinstance(val, bytes) else val.encode("utf-8")
-        core.pinggy_config_set_argument(self.__configRef, val)
+
+        if type(val) == str:
+            val = [val]
+
+        self.__cmd = val
 
     @advanced_parsing.setter
     def advanced_parsing(self, val):
@@ -725,5 +764,301 @@ class Tunnel:
             raise Exception("Tunnel is already connected, no modification allowed")
         core.pinggy_config_set_insecure(self.__configRef, val)
 
-# core.pinggy_set_log_path(b"/tmp/asd")
+    #//////////////////////
 
+    @property
+    def ipwhitelist(self):
+        """list[str]|None: List of IP/IP ranges that allowed to connect to the tunnel. SDK does not verify the IP"""
+        return self.__ipwhitelist
+
+    @ipwhitelist.setter
+    def ipwhitelist(self, ipwhitelist: list[str]|str):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        if type(ipwhitelist) == str:
+            ipwhitelist = [ipwhitelist]
+        self.__ipwhitelist = ipwhitelist
+
+
+    @property
+    def basicauth(self):
+        """dict[str, str]|None: List of username and correstponding password."""
+        return self.__basicauth
+
+    @basicauth.setter
+    def basicauth(self, basicauth:  dict[str,str]):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        self.__basicauth = basicauth
+
+
+    @property
+    def bearerauth(self):
+        """list[str]|None: list of key for bearer authentication"""
+        return self.__bearerauth
+
+    @bearerauth.setter
+    def bearerauth(self, bearerauth:  list[str]|str):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        if type(bearerauth) == str:
+            bearerauth = [bearerauth]
+        self.__bearerauth = bearerauth
+
+
+    @property
+    def headermodification(self):
+        """list[str]|None: list of header modifications. Check https://pinggy.io/docs/advanced/live_header/ for more details"""
+        return self.__headermodification
+
+    @headermodification.setter
+    def headermodification(self, headermodification: list[str]):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        self.__headermodification = headermodification
+
+
+    @property
+    def xff(self):
+        """bool: whethere xff is set or not."""
+        return self.__xff
+
+    @xff.setter
+    def xff(self, xff: bool):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        self.__xff = xff
+
+
+    @property
+    def httpsonly(self):
+        """bool: whether https only is set or not"""
+        return self.__httpsonly
+
+    @httpsonly.setter
+    def httpsonly(self, httpsonly: bool):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        self.__httpsonly = httpsonly
+
+
+    @property
+    def fullrequesturl(self):
+        """bool: request full url. if this flag is set, full original url would be pass through `X-Pinggy-Url` header in the request"""
+        return self.__fullrequesturl
+
+    @fullrequesturl.setter
+    def fullrequesturl(self, fullrequesturl: bool):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        self.__fullrequesturl = fullrequesturl
+
+
+    @property
+    def allowpreflight(self):
+        """bool: allow preflight requests to pass through without processing"""
+        return self.__allowpreflight
+
+    @allowpreflight.setter
+    def allowpreflight(self, allowpreflight: bool):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        self.__allowpreflight = allowpreflight
+
+
+    @property
+    def reverseproxy(self):
+        """"bool: enables reverseproxy mode. default is true."""
+        return self.__reverseproxy
+
+    @reverseproxy.setter
+    def reverseproxy(self, reverseproxy: bool):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        self.__reverseproxy = reverseproxy
+
+
+    def __prepare_n_setargument(self):
+        val = []
+        if self.__cmd is not None:
+            val += self.__cmd
+
+        if self.__ipwhitelist is not None and len(self.__ipwhitelist) > 0:
+            whitelist = "w:"
+            whitelist += ":".join(self.__ipwhitelist)
+            val.append(whitelist)
+
+        if self.__basicauth is not None and len(self.__basicauth) > 0:
+            for u,p in self.__basicauth.items():
+                val.append(f"b:{u}:{p}")
+
+        if self.__bearerauth is not None and len(self.__bearerauth) > 0:
+            for auth in self.__bearerauth:
+                val.append(f"k:{auth}")
+
+        if self.__headermodification is not None and len(self.__headermodification) > 0:
+            for hm in self.__headermodification:
+                val.append(f"k:{hm}")
+
+        if self.__xff:
+            val.append("x:xff")
+
+        if self.__httpsonly:
+            val.append("x:https")
+
+        if self.__fullrequesturl:       # bool = False
+            val.append("x:fullurl")
+
+        if self.__allowpreflight:       # bool = False
+            val.append("x:passpreflight")
+
+        if not self.__reverseproxy:         # bool = False
+            val.append("x:noreverseproxy")
+
+        argument = shlex.join(val)
+
+        argument = argument if isinstance(argument, bytes) else argument.encode("utf-8")
+        core.pinggy_config_set_argument(self.__configRef, argument)
+
+def __start_tunnel(tun, webdebuggerport):
+
+    success = tun.connect()
+    if not success:
+        msg = tun.authentication_messages
+        if type(msg) == list:
+            msg = "\n".join(msg)
+        raise Exception("Connection Failed:\n" + msg)
+
+    success = tun.request_primary_forwarding()
+    if not success:
+        msg = tun.tunnel_statup_messages
+        if type(msg) == list:
+            msg = "\n".join(msg)
+        raise Exception("Connection Failed:\n" + msg)
+
+    tun.start(True)
+
+    if webdebuggerport > 0:
+        tun.start_web_debugging(webdebuggerport)
+
+
+def start_tunnel(
+        forwardto: int|str,
+        type: str = "http",
+        token: str = "",
+        force: bool = False,
+        ipwhitelist: list[str]|str|None = None,
+        basicauth:  dict[str,str]|None = None,
+        bearerauth:  list[str]|str|None = None,
+        headermodification: list[str]|None = None,
+        webdebuggerport: int = 0,
+        xff: str = "",
+        httpsonly: bool = False,
+        fullrequesturl: bool = False,
+        allowpreflight: bool = False,
+        reverseproxy: bool = True,
+        serveraddress: str = "a.pinggy.io:443"
+):
+    """
+    Start a tunnel inside a new thread and get reference to the tunnel.
+
+    Args:
+        forwardto: address of local server. Only port can be provided incase of local server. Example: 80, "localhost:80".
+
+        type: Type of the tunnel. values can be one of `http`, `tcp`, `tls`, `tlstcp`. `http` is the default value.
+
+        token: User token. Get it from https://dashboard.pinggy.io
+
+        force: enable of disable force flag. Enabling it would cause to stop any existing tunnel with same token.
+
+        ipwhitelist: list of ipaddresses that are allowed to connect to the tunnel. Example: ["[2301::c4f:45c2:57e6:e637:7f1a]/128","23.15.30.223/32"].
+                    Be carefull about the ipv6 syntax
+
+        basicauth: dictionary of username:password. This dictionary be used for basic authentication. Example: {"hello": "world"}
+
+        bearerauth: list of keys that would be used for bearer key authentication. Both basicauth and bearerauth can be used together.
+                    Example: ["1234"]
+
+        headermodification: list of header modification that would be added. More detail at https://pinggy.io/docs/advanced/live_header/
+                    Example: ["r:Accept", "u:UserAgent:PinggyTestServer 1.2.3"]
+
+        webdebuggerport: Webdebugging port. Webdebugging would start only if valid port is provided. Example: 4300
+
+        xff: With this flag, pinggy adds `X-Forwarded-For` with the request header.
+
+        httpsonly: This flag make sure that the visitor uses only the https. Any request to http would the redirected to https url.
+
+        fullrequesturl: Pinggy server adds the original url that is requested in a header `X-Pinggy-Url ` with the request.
+
+        allowpreflight: With this flag, pinggy detects and allow preflight request without processing so that the server can handle it.
+
+        reverseproxy: Pinggy by default runs in reverse proxy mode. However, it can be turned off by setting this flag `False`
+
+        serveraddress: User can set the server address to which pinggy would connect. Default: `a.pinggy.io:443`.
+    """
+    disableLog()
+    tun = Tunnel(server_address=serveraddress)
+
+    tun.tcp_forward_to          = forwardto
+    tun.type                    = type
+    tun.token                   = token
+    tun.force                   = force
+
+    if ipwhitelist is not None:
+        tun.ipwhitelist = ipwhitelist
+    if basicauth is not None:
+        tun.basicauth = basicauth
+    if bearerauth is not None:
+        tun.bearerauth = bearerauth
+    if headermodification is not None:
+        tun.headermodification = headermodification
+
+    tun.xff                     = xff
+    tun.httpsonly               = httpsonly
+    tun.fullrequesturl          = fullrequesturl
+    tun.allowpreflight          = allowpreflight
+    tun.reverseproxy            = reverseproxy
+
+    __start_tunnel(tun, webdebuggerport)
+
+    return tun
+
+def start_udptunnel(
+        forwardto: int|str,
+        token: str = "",
+        force: bool = False,
+        ipwhitelist: list[str]|str|None = None,
+        webdebuggerport: int = 4300,
+        serveraddress: str = "a.pinggy.io:443"
+):
+    """
+    Start an udp tunnel inside a new thread and get reference to the tunnel.
+
+    Args:
+        forwardto: address of local server. Only port can be provided incase of local server. Example: 53, "localhost:53".
+
+        token: User token. Get it from https://dashboard.pinggy.io
+
+        force: enable of disable force flag. Enabling it would cause to stop any existing tunnel with same token.
+
+        ipwhitelist: list of ipaddresses that are allowed to connect to the tunnel. Example: ["[2301::c4f:45c2:57e6:e637:7f1a]/128","23.15.30.223/32"].
+
+        webdebuggerport: Webdebugging port. Webdebugging would start only if valid port is provided. Example: 4300
+
+        serveraddress: User can set the server address to which pinggy would connect. Default: `a.pinggy.io:443`.
+    """
+
+    disableLog()
+    tun = Tunnel(server_address=serveraddress)
+
+    tun.udp_forward_to          = forwardto
+    tun.type                    = "udp"
+    tun.token                   = token
+    tun.force                   = force
+
+    if ipwhitelist is not None:
+        tun.ipwhitelist = ipwhitelist
+
+    __start_tunnel(tun, webdebuggerport)
+
+    return tun
