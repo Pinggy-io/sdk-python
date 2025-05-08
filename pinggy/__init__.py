@@ -30,14 +30,16 @@ Example 2:
 """
 
 from .pylib import Tunnel, Channel, BaseTunnelHandler, \
-		setLogPath, disableLog, version, git_commit, \
-		build_timestamp, libc_version, build_os
+        setLogPath, disableLog, version, git_commit, \
+        build_timestamp, libc_version, build_os, \
+        start_tunnel
 
 # Specify the public API of the module
 __all__ = [
     "Tunnel",
     "Channel",
     "BaseTunnelHandler",
+    "start_tunnel",
     "setLogPath",
     "disableLog",
     "version",
