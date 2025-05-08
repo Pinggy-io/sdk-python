@@ -121,7 +121,7 @@ Flow 1:
     >         |       |
     >         |       `-> additional forwarding succeeded callback
     >         |
-    >         `-> serve_tunnel()
+    >         `-> start()
 
 Flow 2:
 
@@ -139,9 +139,21 @@ Flow 2:
 
 keep it true. Free tunnels won't work without it.
 
+### `Tunnel.allowpreflight`
+
+bool: allow preflight requests to pass through without processing
+
 ### `Tunnel.argument`
 
 str: tunnel arguments for header manipulation and others.
+
+### `Tunnel.basicauth`
+
+dict[str, str]|None: List of username and correstponding password.
+
+### `Tunnel.bearerauth`
+
+list[str]|None: list of key for bearer authentication
 
 ### `Tunnel.connect(self)`
 
@@ -156,9 +168,25 @@ If this step fails, no futher step steps can be continued.
 
 bool: force flag in tunnel that terminates any existing tunnel with the same token.
 
+### `Tunnel.fullrequesturl`
+
+bool: request full url. if this flag is set, full original url would be pass through `X-Pinggy-Url` header in the request
+
+### `Tunnel.headermodification`
+
+list[str]|None: list of header modifications. Check https://pinggy.io/docs/advanced/live_header/ for more details
+
+### `Tunnel.httpsonly`
+
+bool: whether https only is set or not
+
 ### `Tunnel.insecure`
 
 *No docstring provided.*
+
+### `Tunnel.ipwhitelist`
+
+list[str]|None: List of IP/IP ranges that allowed to connect to the tunnel. SDK does not verify the IP
 
 ### `Tunnel.is_active(self)`
 
@@ -175,9 +203,14 @@ More details at: https://pinggy.io/docs/http_tunnels/multi_port_forwarding/.
 Request to start the default forwarding. Once suceeded, user can get
 the urls and tunnel starts accepting requests.
 
+### `Tunnel.reverseproxy`
+
+"bool: enables reverseproxy mode. default is true.
+
 ### `Tunnel.serve_tunnel(self)`
 
 Final method in the tunnel creation flow. It is again a blocking call.
+**Deprecated**
 
 ### `Tunnel.server_address`
 
@@ -192,10 +225,13 @@ str: pinggy server address. The default server address is `a.pinggy.io`. You can
 
 *No docstring provided.*
 
-### `Tunnel.start(self)`
+### `Tunnel.start(self, thread=False)`
 
 Start the tunnel with the provided configuration. This is a blocking call.
 It does not return unless tunnel stopped externally or some error occures.
+
+**Arguments**:
+- **thread (bool)**: Whether to run the start tunnel in a new thread. Default is False
 
 ### `Tunnel.start_web_debugging(self, port=4300)`
 
@@ -241,6 +277,10 @@ str: Tunnel type or mode. This is only for UDP type. currently, only accepted va
 
 list(str): lists of public urls for the running tunnel (read only)
 
+### `Tunnel.xff`
+
+bool: whethere xff is set or not.
+
 ### `build_os()`
 
 Get the detail about the build operating system.
@@ -277,6 +317,64 @@ Get the libc version of the native. This information is accurate only for linux 
 
 Set path where native library print its log. Use this function only if requires.
 To disable native library logging completly, use `disableLog` function.
+
+**Arguments**:
+- **path (str)**: New log path. Path needs to have write permission.
+
+### `start_tunnel(forwardto: int | str, type: str = 'http', token: str = '', force: bool = False, ipwhitelist: list[str] | str | None = None, basicauth: dict[str, str] | None = None, bearerauth: list[str] | str | None = None, headermodification: list[str] | None = None, webdebuggerport: int = 0, xff: str = '', httpsonly: bool = False, fullrequesturl: bool = False, allowpreflight: bool = False, reverseproxy: bool = True, serveraddress: str = 'a.pinggy.io:443')`
+
+Start a tunnel inside a new thread and get reference to the tunnel.
+
+**Arguments**:
+- **forwardto**: address of local server. Only port can be provided incase of local server. Example: 80, "localhost:80".
+
+    type: Type of the tunnel. values can be one of `http`, `tcp`, `tls`, `tlstcp`. `http` is the default value.
+
+    token: User token. Get it from https://dashboard.pinggy.io
+
+    force: enable of disable force flag. Enabling it would cause to stop any existing tunnel with same token.
+
+    ipwhitelist: list of ipaddresses that are allowed to connect to the tunnel. Example: ["[2301::c4f:45c2:57e6:e637:7f1a]/128","23.15.30.223/32"].
+                Be carefull about the ipv6 syntax
+
+    basicauth: dictionary of username:password. This dictionary be used for basic authentication. Example: {"hello": "world"}
+
+    bearerauth: list of keys that would be used for bearer key authentication. Both basicauth and bearerauth can be used together.
+                Example: ["1234"]
+
+    headermodification: list of header modification that would be added. More detail at https://pinggy.io/docs/advanced/live_header/
+                Example: ["r:Accept", "u:UserAgent:PinggyTestServer 1.2.3"]
+
+    webdebuggerport: Webdebugging port. Webdebugging would start only if valid port is provided. Example: 4300
+
+    xff: With this flag, pinggy adds `X-Forwarded-For` with the request header.
+
+    httpsonly: This flag make sure that the visitor uses only the https. Any request to http would the redirected to https url.
+
+    fullrequesturl: Pinggy server adds the original url that is requested in a header `X-Pinggy-Url ` with the request.
+
+    allowpreflight: With this flag, pinggy detects and allow preflight request without processing so that the server can handle it.
+
+    reverseproxy: Pinggy by default runs in reverse proxy mode. However, it can be turned off by setting this flag `False`
+
+    serveraddress: User can set the server address to which pinggy would connect. Default: `a.pinggy.io:443`.
+
+### `start_udptunnel(forwardto: int | str, token: str = '', force: bool = False, ipwhitelist: list[str] | str | None = None, webdebuggerport: int = 4300, serveraddress: str = 'a.pinggy.io:443')`
+
+Start an udp tunnel inside a new thread and get reference to the tunnel.
+
+**Arguments**:
+- **forwardto**: address of local server. Only port can be provided incase of local server. Example: 53, "localhost:53".
+
+    token: User token. Get it from https://dashboard.pinggy.io
+
+    force: enable of disable force flag. Enabling it would cause to stop any existing tunnel with same token.
+
+    ipwhitelist: list of ipaddresses that are allowed to connect to the tunnel. Example: ["[2301::c4f:45c2:57e6:e637:7f1a]/128","23.15.30.223/32"].
+
+    webdebuggerport: Webdebugging port. Webdebugging would start only if valid port is provided. Example: 4300
+
+    serveraddress: User can set the server address to which pinggy would connect. Default: `a.pinggy.io:443`.
 
 ### `version()`
 

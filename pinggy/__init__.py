@@ -14,17 +14,24 @@ port 80 to the internet we can start tunnel via following:
 Example 1:
 
     >>> import pinggy
-    >>> tunnel = pinggy.Tunnel()
-    >>> tunnel.tcp_forward_to = "localhost:80"
-    >>> tunnel.start()
+    >>> tunnel = pinggy.start_tunnel(80)
+    >>> print(tunnel.url)
 
 Example 2:
 
     >>> import pinggy
     >>> tunnel = pinggy.Tunnel()
     >>> tunnel.tcp_forward_to = "localhost:80"
+    >>> tunnel.start()
+
+Example 3:
+
+    >>> import pinggy
+    >>> tunnel = pinggy.Tunnel()
+    >>> tunnel.tcp_forward_to = "localhost:80"
     >>> tunnel.connect()
     >>> tunnel.request_primary_forwarding()
+    >>> print(tunnel.url)
     >>> tunnel.serve_tunnel()
 
 """
@@ -32,7 +39,7 @@ Example 2:
 from .pylib import Tunnel, Channel, BaseTunnelHandler, \
         setLogPath, disableLog, version, git_commit, \
         build_timestamp, libc_version, build_os, \
-        start_tunnel
+        start_tunnel, start_udptunnel
 
 # Specify the public API of the module
 __all__ = [
@@ -40,6 +47,7 @@ __all__ = [
     "Channel",
     "BaseTunnelHandler",
     "start_tunnel",
+    "start_udptunnel",
     "setLogPath",
     "disableLog",
     "version",
