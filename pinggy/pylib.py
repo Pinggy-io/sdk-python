@@ -280,7 +280,7 @@ class Tunnel:
         >         |       |
         >         |       `-> additional forwarding succeeded callback
         >         |
-        >         `-> serve_tunnel()
+        >         `-> start()
 
     Flow 2:
 
@@ -725,5 +725,34 @@ class Tunnel:
             raise Exception("Tunnel is already connected, no modification allowed")
         core.pinggy_config_set_insecure(self.__configRef, val)
 
-# core.pinggy_set_log_path(b"/tmp/asd")
+def StartTunnel(
+        forwardto: int|str,
+        type: str = "http",
+        token: str = "",
+        force: bool = False,
+        ipwhitelist: list[str]|str|None = None,
+        basicauth:  dict[str,str]|None = None,
+        bearerauth:  list[str]|None = None,
+        headermodification: list[str]|None = None,
+        webdebuggerport: int = 4300,
+        xff: str = "",
+        httpsOnly: bool = False,
+        fullRequestUrl: bool = False,
+        allowPreflight: bool = False,
+        reverseProxy: bool = False,
+        serverport: int = 443,
+        serveraddress: str = "a.pinggy.io"
+):
+    pass
+
+def StartUdpTunnel(
+        forwardto: int|str,
+        token: str = "",
+        force: bool = False,
+        ipwhitelist: list[str]|str|None = None,
+        webdebuggerport: int = 4300,
+        serverport: int = 443,
+        serveraddress: str = "a.pinggy.io"
+):
+    pass
 
