@@ -217,7 +217,7 @@ setup(
     include_package_data=True,
     package_data={"pinggy": get_shared_libraries()},
     description="Tunneling tool",
-    long_description=open("API_DOC.md").read(),
+    long_description=open("PyPI_Description.md").read(),
     long_description_content_type="text/markdown",
     author="Pinggy",
     license="Apache 2.0",
