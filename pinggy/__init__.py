@@ -32,7 +32,7 @@ Example 3:
     >>> tunnel.connect()
     >>> tunnel.request_primary_forwarding()
     >>> print(tunnel.url)
-    >>> tunnel.serve_tunnel()
+    >>> tunnel.start()
 
 """
 

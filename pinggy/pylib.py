@@ -356,7 +356,7 @@ class Tunnel:
         self.__setup_callbacks()
 
     def __setup_callbacks(self):
-        print("Setting up callback")
+        # print("Setting up callback")
         if not core.pinggy_tunnel_set_authenticated_callback(self.__tunnelRef, self.__authenticated_cb, None):
             print(f"Could not setup callback for `pinggy_set_authenticated_callback`")
         if not core.pinggy_tunnel_set_authentication_failed_callback(self.__tunnelRef, self.__authentication_failed_cb, None):
@@ -920,6 +920,7 @@ class Tunnel:
         argument = argument if isinstance(argument, bytes) else argument.encode("utf-8")
         core.pinggy_config_set_argument(self.__configRef, argument)
 
+
 def __start_tunnel(tun, webdebuggerport):
 
     success = tun.connect()
@@ -952,7 +953,7 @@ def start_tunnel(
         bearerauth:  list[str]|str|None = None,
         headermodification: list[str]|None = None,
         webdebuggerport: int = 0,
-        xff: str = "",
+        xff: bool = False,
         httpsonly: bool = False,
         fullrequesturl: bool = False,
         allowpreflight: bool = False,

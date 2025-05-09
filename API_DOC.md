@@ -321,7 +321,7 @@ To disable native library logging completly, use `disableLog` function.
 **Arguments**:
 - **path (str)**: New log path. Path needs to have write permission.
 
-### `start_tunnel(forwardto: int | str, type: str = 'http', token: str = '', force: bool = False, ipwhitelist: list[str] | str | None = None, basicauth: dict[str, str] | None = None, bearerauth: list[str] | str | None = None, headermodification: list[str] | None = None, webdebuggerport: int = 0, xff: str = '', httpsonly: bool = False, fullrequesturl: bool = False, allowpreflight: bool = False, reverseproxy: bool = True, serveraddress: str = 'a.pinggy.io:443')`
+### `start_tunnel(forwardto: int | str, type: str = 'http', token: str = '', force: bool = False, ipwhitelist: list[str] | str | None = None, basicauth: dict[str, str] | None = None, bearerauth: list[str] | str | None = None, headermodification: list[str] | None = None, webdebuggerport: int = 0, xff: bool = False, httpsonly: bool = False, fullrequesturl: bool = False, allowpreflight: bool = False, reverseproxy: bool = True, serveraddress: str = 'a.pinggy.io:443')`
 
 Start a tunnel inside a new thread and get reference to the tunnel.
 
