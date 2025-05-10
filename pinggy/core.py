@@ -18,38 +18,39 @@ def pinggy_error_check(a, b, c):
     return a
 
 #========
-pinggy_bool_t                               = ctypes.c_bool
-pinggy_ref_t                                = ctypes.c_uint32
-pinggy_char_p_t                             = ctypes.c_char_p
-pinggy_char_p_p_t                           = ctypes.POINTER(ctypes.c_char_p)
-pinggy_void_t                               = None
-pinggy_void_p_t                             = ctypes.c_void_p
-pinggy_const_char_p_t                       = ctypes.c_char_p
-pinggy_const_int_t                          = ctypes.c_int
-pinggy_const_bool_t                         = ctypes.c_bool
-pinggy_int_t                                = ctypes.c_int
-pinggy_len_t                                = ctypes.c_int16
-pinggy_capa_t                               = ctypes.c_uint32
-pinggy_uint32_t                             = ctypes.c_uint32
-pinggy_uint16_t                             = ctypes.c_uint16
-pinggy_raw_len_t                            = ctypes.c_int32
+pinggy_bool_t                                   = ctypes.c_bool
+pinggy_ref_t                                    = ctypes.c_uint32
+pinggy_char_p_t                                 = ctypes.c_char_p
+pinggy_char_p_p_t                               = ctypes.POINTER(ctypes.c_char_p)
+pinggy_void_t                                   = None
+pinggy_void_p_t                                 = ctypes.c_void_p
+pinggy_const_char_p_t                           = ctypes.c_char_p
+pinggy_const_int_t                              = ctypes.c_int
+pinggy_const_bool_t                             = ctypes.c_bool
+pinggy_int_t                                    = ctypes.c_int
+pinggy_len_t                                    = ctypes.c_int16
+pinggy_capa_t                                   = ctypes.c_uint32
+pinggy_uint32_t                                 = ctypes.c_uint32
+pinggy_uint16_t                                 = ctypes.c_uint16
+pinggy_raw_len_t                                = ctypes.c_int32
 
-pinggy_authenticated_cb_t                   = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t)
-pinggy_authentication_failed_cb_t           = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_len_t, pinggy_char_p_p_t)
-pinggy_primary_forwarding_succeeded_cb_t    = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_len_t, pinggy_char_p_p_t)
-pinggy_primary_forwarding_failed_cb_t       = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t)
-pinggy_additional_forwarding_succeeded_cb_t = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t, pinggy_const_char_p_t)
-pinggy_additional_forwarding_failed_cb_t    = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t, pinggy_const_char_p_t, pinggy_const_char_p_t)
-pinggy_disconnected_cb_t                    = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t, pinggy_len_t, pinggy_char_p_p_t)
-pinggy_tunnel_error_cb_t                    = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_uint32_t, pinggy_char_p_t, pinggy_bool_t)
-pinggy_new_channel_cb_t                     = ctypes.CFUNCTYPE(pinggy_bool_t, pinggy_void_p_t, pinggy_ref_t, pinggy_ref_t)
-pinggy_raise_exception_cb_t                 = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_const_char_p_t, pinggy_const_char_p_t)
+pinggy_on_connected_cb_t                        = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t)
+pinggy_on_authenticated_cb_t                    = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t)
+pinggy_on_authentication_failed_cb_t            = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_len_t, pinggy_char_p_p_t)
+pinggy_on_primary_forwarding_succeeded_cb_t     = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_len_t, pinggy_char_p_p_t)
+pinggy_on_primary_forwarding_failed_cb_t        = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t)
+pinggy_on_additional_forwarding_succeeded_cb_t  = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t, pinggy_const_char_p_t)
+pinggy_on_additional_forwarding_failed_cb_t     = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t, pinggy_const_char_p_t, pinggy_const_char_p_t)
+pinggy_on_disconnected_cb_t                     = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t, pinggy_len_t, pinggy_char_p_p_t)
+pinggy_on_tunnel_error_cb_t                     = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_uint32_t, pinggy_char_p_t, pinggy_bool_t)
+pinggy_on_new_channel_cb_t                      = ctypes.CFUNCTYPE(pinggy_bool_t, pinggy_void_p_t, pinggy_ref_t, pinggy_ref_t)
+pinggy_on_raise_exception_cb_t                  = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_const_char_p_t, pinggy_const_char_p_t)
 
 
-pinggy_channel_data_received_cb_t           = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t)
-pinggy_channel_ready_to_send_cb_t           = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_uint32_t)
-pinggy_channel_error_cb_t                   = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t, pinggy_len_t)
-pinggy_channel_cleanup_cb_t                 = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t)
+pinggy_channel_data_received_cb_t               = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t)
+pinggy_channel_ready_to_send_cb_t               = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_uint32_t)
+pinggy_channel_error_cb_t                       = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t, pinggy_len_t)
+pinggy_channel_cleanup_cb_t                     = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t)
 
 #========
 
@@ -83,6 +84,7 @@ pinggy_config_get_advanced_parsing                          = cdll.pinggy_config
 pinggy_config_get_ssl                                       = cdll.pinggy_config_get_ssl
 pinggy_config_get_sni_server_name                           = cdll.pinggy_config_get_sni_server_name
 pinggy_config_get_insecure                                  = cdll.pinggy_config_get_insecure
+pinggy_tunnel_set_connected_callback                        = cdll.pinggy_tunnel_set_connected_callback
 pinggy_tunnel_set_authenticated_callback                    = cdll.pinggy_tunnel_set_authenticated_callback
 pinggy_tunnel_set_authentication_failed_callback            = cdll.pinggy_tunnel_set_authentication_failed_callback
 pinggy_tunnel_set_primary_forwarding_succeeded_callback     = cdll.pinggy_tunnel_set_primary_forwarding_succeeded_callback
@@ -155,6 +157,7 @@ pinggy_config_get_advanced_parsing.errcheck                         = pinggy_err
 pinggy_config_get_ssl.errcheck                                      = pinggy_error_check
 pinggy_config_get_sni_server_name.errcheck                          = pinggy_error_check
 pinggy_config_get_insecure.errcheck                                 = pinggy_error_check
+pinggy_tunnel_set_connected_callback.errcheck                       = pinggy_error_check
 pinggy_tunnel_set_authenticated_callback.errcheck                   = pinggy_error_check
 pinggy_tunnel_set_authentication_failed_callback.errcheck           = pinggy_error_check
 pinggy_tunnel_set_primary_forwarding_succeeded_callback.errcheck    = pinggy_error_check
@@ -203,6 +206,7 @@ pinggy_config_get_advanced_parsing.restype                          = pinggy_con
 pinggy_config_get_ssl.restype                                       = pinggy_const_bool_t
 pinggy_config_get_sni_server_name.restype                           = pinggy_const_int_t
 pinggy_config_get_insecure.restype                                  = pinggy_const_bool_t
+pinggy_tunnel_set_connected_callback.restype                        = pinggy_bool_t
 pinggy_tunnel_set_authenticated_callback.restype                    = pinggy_bool_t
 pinggy_tunnel_set_authentication_failed_callback.restype            = pinggy_bool_t
 pinggy_tunnel_set_primary_forwarding_succeeded_callback.restype     = pinggy_bool_t
@@ -224,7 +228,7 @@ pinggy_tunnel_request_additional_forwarding.restype                 = pinggy_voi
 #========
 pinggy_set_log_path.argtypes                                        = [pinggy_char_p_t]
 pinggy_set_log_enable.argtypes                                      = [pinggy_bool_t]
-pinggy_set_exception_callback.argtypes                              = [pinggy_raise_exception_cb_t]
+pinggy_set_exception_callback.argtypes                              = [pinggy_on_raise_exception_cb_t]
 pinggy_free_ref.argtypes                                            = [pinggy_ref_t]
 pinggy_create_config.argtypes                                       = []
 pinggy_config_set_server_address.argtypes                           = [pinggy_ref_t, pinggy_char_p_t]
@@ -251,15 +255,16 @@ pinggy_config_get_advanced_parsing.argtypes                         = [pinggy_re
 pinggy_config_get_ssl.argtypes                                      = [pinggy_ref_t]
 pinggy_config_get_sni_server_name.argtypes                          = [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t]
 pinggy_config_get_insecure.argtypes                                 = [pinggy_ref_t]
-pinggy_tunnel_set_authenticated_callback.argtypes                   = [pinggy_ref_t, pinggy_authenticated_cb_t, pinggy_void_p_t]
-pinggy_tunnel_set_authentication_failed_callback.argtypes           = [pinggy_ref_t, pinggy_authentication_failed_cb_t, pinggy_void_p_t]
-pinggy_tunnel_set_primary_forwarding_succeeded_callback.argtypes    = [pinggy_ref_t, pinggy_primary_forwarding_succeeded_cb_t, pinggy_void_p_t]
-pinggy_tunnel_set_primary_forwarding_failed_callback.argtypes       = [pinggy_ref_t, pinggy_primary_forwarding_failed_cb_t, pinggy_void_p_t]
-pinggy_tunnel_set_additional_forwarding_succeeded_callback.argtypes = [pinggy_ref_t, pinggy_additional_forwarding_succeeded_cb_t, pinggy_void_p_t]
-pinggy_tunnel_set_additional_forwarding_failed_callback.argtypes    = [pinggy_ref_t, pinggy_additional_forwarding_failed_cb_t, pinggy_void_p_t]
-pinggy_tunnel_set_disconnected_callback.argtypes                    = [pinggy_ref_t, pinggy_disconnected_cb_t, pinggy_void_p_t]
-pinggy_tunnel_set_tunnel_error_callback.argtypes                    = [pinggy_ref_t, pinggy_tunnel_error_cb_t, pinggy_void_p_t]
-pinggy_tunnel_set_new_channel_callback.argtypes                     = [pinggy_ref_t, pinggy_new_channel_cb_t, pinggy_void_p_t]
+pinggy_tunnel_set_connected_callback.argtypes                       = [pinggy_ref_t, pinggy_on_connected_cb_t, pinggy_void_p_t]
+pinggy_tunnel_set_authenticated_callback.argtypes                   = [pinggy_ref_t, pinggy_on_authenticated_cb_t, pinggy_void_p_t]
+pinggy_tunnel_set_authentication_failed_callback.argtypes           = [pinggy_ref_t, pinggy_on_authentication_failed_cb_t, pinggy_void_p_t]
+pinggy_tunnel_set_primary_forwarding_succeeded_callback.argtypes    = [pinggy_ref_t, pinggy_on_primary_forwarding_succeeded_cb_t, pinggy_void_p_t]
+pinggy_tunnel_set_primary_forwarding_failed_callback.argtypes       = [pinggy_ref_t, pinggy_on_primary_forwarding_failed_cb_t, pinggy_void_p_t]
+pinggy_tunnel_set_additional_forwarding_succeeded_callback.argtypes = [pinggy_ref_t, pinggy_on_additional_forwarding_succeeded_cb_t, pinggy_void_p_t]
+pinggy_tunnel_set_additional_forwarding_failed_callback.argtypes    = [pinggy_ref_t, pinggy_on_additional_forwarding_failed_cb_t, pinggy_void_p_t]
+pinggy_tunnel_set_disconnected_callback.argtypes                    = [pinggy_ref_t, pinggy_on_disconnected_cb_t, pinggy_void_p_t]
+pinggy_tunnel_set_tunnel_error_callback.argtypes                    = [pinggy_ref_t, pinggy_on_tunnel_error_cb_t, pinggy_void_p_t]
+pinggy_tunnel_set_new_channel_callback.argtypes                     = [pinggy_ref_t, pinggy_on_new_channel_cb_t, pinggy_void_p_t]
 pinggy_tunnel_initiate.argtypes                                     = [pinggy_ref_t]
 pinggy_tunnel_start.argtypes                                        = [pinggy_ref_t]
 pinggy_tunnel_connect.argtypes                                      = [pinggy_ref_t]
@@ -360,7 +365,7 @@ def pinggy_raise_exception(etype, ewhat):
     # print("Seting up value: ", pinggy_thread_local_data.value)
     # raise Exception(etype.decode('utf-8') + "what: " + ewhat.decode('utf-8'))
 
-pinggy_raise_exception = pinggy_raise_exception_cb_t(pinggy_raise_exception)
+pinggy_raise_exception = pinggy_on_raise_exception_cb_t(pinggy_raise_exception)
 
 cdll.pinggy_set_exception_callback(pinggy_raise_exception)
 

@@ -155,11 +155,16 @@ class BaseTunnelHandler:
         """
         return self.tunnel
 
+    def connected(self):
+        """
+        Triggers when tunnel successfully connected. it is probably is not required at all.
+        """
+
     def authenticated(self):
         """
         Triggers when tunnel successfully authenticated. Authentication happen even for free tunnels.
         """
-        print(f"Tunnel authenthicated")
+        # print(f"Tunnel authenticated")
 
     def authentication_failed(self, errors):
         """
@@ -179,7 +184,7 @@ class BaseTunnelHandler:
 
         Once this step done, one can fetch the urls from the tunnel.
         """
-        print(f"Forwarding succeeded. urls: {self.tunnel.urls}")
+        # print(f"Forwarding succeeded. urls: {self.tunnel.urls}")
 
     def primary_forwarding_failed(self, msg):
         """
@@ -303,15 +308,16 @@ class Tunnel:
         server_address = server_address if isinstance(server_address, bytes) else server_address.encode("utf-8")
         self.__tunnelRef                            = 0
         self.__resumable                            = False
-        self.__authenticated_cb                     = core.pinggy_authenticated_cb_t(self.__func_authenticated)
-        self.__authentication_failed_cb             = core.pinggy_authentication_failed_cb_t(self.__func_authentication_failed)
-        self.__primary_forwarding_succeeded_cb      = core.pinggy_primary_forwarding_succeeded_cb_t(self.__func_primary_forwarding_succeeded)
-        self.__primary_forwarding_failed_cb         = core.pinggy_primary_forwarding_failed_cb_t(self.__func_primary_forwarding_failed)
-        self.__additional_forwarding_succeeded_cb   = core.pinggy_additional_forwarding_succeeded_cb_t(self.__func_additional_forwarding_succeeded)
-        self.__additional_forwarding_failed_cb      = core.pinggy_additional_forwarding_failed_cb_t(self.__func_additional_forwarding_failed)
-        self.__disconnected_cb                      = core.pinggy_disconnected_cb_t(self.__func_disconnected)
-        self.__tunnel_error_cb                      = core.pinggy_tunnel_error_cb_t(self.__func_tunnel_error)
-        self.__new_channel_cb                       = core.pinggy_new_channel_cb_t(self.__func_new_channel)
+        self.__connected_cb                         = core.pinggy_on_connected_cb_t(self.__func_connected)
+        self.__authenticated_cb                     = core.pinggy_on_authenticated_cb_t(self.__func_authenticated)
+        self.__authentication_failed_cb             = core.pinggy_on_authentication_failed_cb_t(self.__func_authentication_failed)
+        self.__primary_forwarding_succeeded_cb      = core.pinggy_on_primary_forwarding_succeeded_cb_t(self.__func_primary_forwarding_succeeded)
+        self.__primary_forwarding_failed_cb         = core.pinggy_on_primary_forwarding_failed_cb_t(self.__func_primary_forwarding_failed)
+        self.__additional_forwarding_succeeded_cb   = core.pinggy_on_additional_forwarding_succeeded_cb_t(self.__func_additional_forwarding_succeeded)
+        self.__additional_forwarding_failed_cb      = core.pinggy_on_additional_forwarding_failed_cb_t(self.__func_additional_forwarding_failed)
+        self.__disconnected_cb                      = core.pinggy_on_disconnected_cb_t(self.__func_disconnected)
+        self.__tunnel_error_cb                      = core.pinggy_on_tunnel_error_cb_t(self.__func_tunnel_error)
+        self.__new_channel_cb                       = core.pinggy_on_new_channel_cb_t(self.__func_new_channel)
 
         self.__configRef                            = core.pinggy_create_config()
         self.__tunnelRef                            = core.pinggy_tunnel_initiate(self.__configRef)
@@ -357,6 +363,8 @@ class Tunnel:
 
     def __setup_callbacks(self):
         # print("Setting up callback")
+        if not core.pinggy_tunnel_set_connected_callback(self.__tunnelRef, self.__connected_cb, None):
+            print(f"Could not setup callback for `pinggy_set_connected_callback`")
         if not core.pinggy_tunnel_set_authenticated_callback(self.__tunnelRef, self.__authenticated_cb, None):
             print(f"Could not setup callback for `pinggy_set_authenticated_callback`")
         if not core.pinggy_tunnel_set_authentication_failed_callback(self.__tunnelRef, self.__authentication_failed_cb, None):
@@ -534,6 +542,10 @@ class Tunnel:
             if error != errno.EINTR:
                 self.__resumable = False
                 return
+
+    def __func_connected(self, userdata, ref):
+        self.__eventHandler.connected()
+        # print(f"AuthenticatedFunc: Reference: {ref}")
 
     def __func_authenticated(self, userdata, ref):
         self.__authenticated = True
