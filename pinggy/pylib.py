@@ -363,25 +363,25 @@ class Tunnel:
 
     def __setup_callbacks(self):
         # print("Setting up callback")
-        if not core.pinggy_tunnel_set_connected_callback(self.__tunnelRef, self.__connected_cb, None):
+        if not core.pinggy_tunnel_set_on_connected_callback(self.__tunnelRef, self.__connected_cb, None):
             print(f"Could not setup callback for `pinggy_set_connected_callback`")
-        if not core.pinggy_tunnel_set_authenticated_callback(self.__tunnelRef, self.__authenticated_cb, None):
+        if not core.pinggy_tunnel_set_on_authenticated_callback(self.__tunnelRef, self.__authenticated_cb, None):
             print(f"Could not setup callback for `pinggy_set_authenticated_callback`")
-        if not core.pinggy_tunnel_set_authentication_failed_callback(self.__tunnelRef, self.__authentication_failed_cb, None):
+        if not core.pinggy_tunnel_set_on_authentication_failed_callback(self.__tunnelRef, self.__authentication_failed_cb, None):
             print(f"Could not setup callback for `pinggy_set_authenticationFailed_callback`")
-        if not core.pinggy_tunnel_set_primary_forwarding_succeeded_callback(self.__tunnelRef, self.__primary_forwarding_succeeded_cb, None):
+        if not core.pinggy_tunnel_set_on_primary_forwarding_succeeded_callback(self.__tunnelRef, self.__primary_forwarding_succeeded_cb, None):
             print(f"Could not setup callback for `pinggy_tunnel_set_primary_forwarding_succeeded_callback`")
-        if not core.pinggy_tunnel_set_primary_forwarding_failed_callback(self.__tunnelRef, self.__primary_forwarding_failed_cb, None):
+        if not core.pinggy_tunnel_set_on_primary_forwarding_failed_callback(self.__tunnelRef, self.__primary_forwarding_failed_cb, None):
             print(f"Could not setup callback for `pinggy_tunnel_set_primary_forwarding_failed_callback`")
-        if not core.pinggy_tunnel_set_additional_forwarding_succeeded_callback(self.__tunnelRef, self.__additional_forwarding_succeeded_cb, None):
+        if not core.pinggy_tunnel_set_on_additional_forwarding_succeeded_callback(self.__tunnelRef, self.__additional_forwarding_succeeded_cb, None):
             print(f"Could not setup callback for `pinggy_tunnel_set_additional_forwarding_succeeded_callback`")
-        if not core.pinggy_tunnel_set_additional_forwarding_failed_callback(self.__tunnelRef, self.__additional_forwarding_failed_cb, None):
+        if not core.pinggy_tunnel_set_on_additional_forwarding_failed_callback(self.__tunnelRef, self.__additional_forwarding_failed_cb, None):
             print(f"Could not setup callback for `pinggy_tunnel_set_additional_forwarding_failed_callback`")
-        if not core.pinggy_tunnel_set_disconnected_callback(self.__tunnelRef, self.__disconnected_cb, None):
+        if not core.pinggy_tunnel_set_on_disconnected_callback(self.__tunnelRef, self.__disconnected_cb, None):
             print(f"Could not setup callback for `pinggy_set_disconnected_callback`")
-        if not core.pinggy_tunnel_set_tunnel_error_callback(self.__tunnelRef, self.__tunnel_error_cb, None):
+        if not core.pinggy_tunnel_set_on_tunnel_error_callback(self.__tunnelRef, self.__tunnel_error_cb, None):
             print(f"Could not setup callback for `pinggy_set_tunnel_error_callback`")
-        if not core.pinggy_tunnel_set_new_channel_callback(self.__tunnelRef, self.__new_channel_cb, None):
+        if not core.pinggy_tunnel_set_on_new_channel_callback(self.__tunnelRef, self.__new_channel_cb, None):
             print(f"Could not setup callback for `pinggy_tunnel_set_new_channel_callback`")
 
 
