@@ -829,6 +829,27 @@ class Tunnel:
             raise Exception("Tunnel is already connected, no modification allowed")
         self.__headermodification = headermodification
 
+    def removeHeader(self, header_name):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        if self.__headermodification is None:
+            self.__headermodification = []
+        self.__headermodification.append(f"r:{header_name}")
+
+    def addHeader(self, header_name, new_value):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        if self.__headermodification is None:
+            self.__headermodification = []
+        self.__headermodification.append(f"a:{header_name}:{new_value}")
+
+    def updateHeader(self, header_name, new_value):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        if self.__headermodification is None:
+            self.__headermodification = []
+        self.__headermodification.append(f"a:{header_name}:{new_value}")
+
 
     @property
     def xff(self):

@@ -1,3 +1,3 @@
-__lib_pinggy_version = "0.0.13"
+__lib_pinggy_version = "0.0.14"
 __lib_pinggy_url_prefix = "https://github.com/Pinggy-io/libpinggy/releases/download/v"
 __version__ = "v0.0.6"
