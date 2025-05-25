@@ -742,12 +742,12 @@ class Tunnel:
         core.pinggy_config_set_force(self.__configRef, val)
 
     @argument.setter
-    def argument(self, val: list[str]|str):
+    def argument(self, val: str):
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
 
-        if type(val) == str:
-            val = [val]
+        if type(val) != str:
+            raise Exception("Only string is allowed")
 
         self.__cmd = val
 
@@ -913,8 +913,6 @@ class Tunnel:
 
     def __prepare_n_setargument(self):
         val = []
-        if self.__cmd is not None:
-            val += self.__cmd
 
         if self.__ipwhitelist is not None and len(self.__ipwhitelist) > 0:
             whitelist = "w:"
@@ -950,6 +948,8 @@ class Tunnel:
 
         argument = shlex.join(val)
 
+        if self.__cmd != "":
+            argument = self.__cmd + " " + argument
         argument = argument if isinstance(argument, bytes) else argument.encode("utf-8")
         core.pinggy_config_set_argument(self.__configRef, argument)
 
