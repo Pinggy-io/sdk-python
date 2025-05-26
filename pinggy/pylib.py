@@ -461,9 +461,10 @@ class Tunnel:
     def stop(self):
         """Stops the running tunnel."""
         core.pinggy_tunnel_stop(self.__tunnelRef)
-        if self.__thread is not None:
-            self.__thread.join()
-            self.__thread = None
+        if self.__thread is not None: # only if it is different thread than self.__thread
+            if threading.current_thread() != self.__thread:
+                self.__thread.join()
+                self.__thread = None
 
     def is_active(self):
         """Check if tunnel is active or not."""
@@ -977,7 +978,7 @@ def __start_tunnel(tun, webdebuggerport):
 
 
 def start_tunnel(
-        forwardto: int|str,
+        forwardto: int|str = 80,
         type: str = "http",
         token: str = "",
         force: bool = False,
