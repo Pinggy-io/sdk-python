@@ -461,9 +461,15 @@ class Tunnel:
     def stop(self):
         """Stops the running tunnel."""
         core.pinggy_tunnel_stop(self.__tunnelRef)
-        if self.__thread is not None:
+        if self.__thread is not None: # only if it is different thread than self.__thread
+            if threading.current_thread() != self.__thread:
+                self.__thread.join()
+                self.__thread = None
+
+    def wait(self):
+        """Wait for tunnel to stop. It does not stop the tunnel though."""
+        if self.__thread is not None and self.__thread != threading.current_thread():
             self.__thread.join()
-            self.__thread = None
 
     def is_active(self):
         """Check if tunnel is active or not."""
@@ -916,7 +922,7 @@ class Tunnel:
 
         if self.__ipwhitelist is not None and len(self.__ipwhitelist) > 0:
             whitelist = "w:"
-            whitelist += ":".join(self.__ipwhitelist)
+            whitelist += ",".join(self.__ipwhitelist)
             val.append(whitelist)
 
         if self.__basicauth is not None and len(self.__basicauth) > 0:
@@ -950,6 +956,7 @@ class Tunnel:
 
         if self.__cmd != "":
             argument = self.__cmd + " " + argument
+        print(argument)
         argument = argument if isinstance(argument, bytes) else argument.encode("utf-8")
         core.pinggy_config_set_argument(self.__configRef, argument)
 
@@ -977,7 +984,7 @@ def __start_tunnel(tun, webdebuggerport):
 
 
 def start_tunnel(
-        forwardto: int|str,
+        forwardto: int|str = 80,
         type: str = "http",
         token: str = "",
         force: bool = False,
@@ -1005,7 +1012,7 @@ def start_tunnel(
 
         force: enable of disable force flag. Enabling it would cause to stop any existing tunnel with same token.
 
-        ipwhitelist: list of ipaddresses that are allowed to connect to the tunnel. Example: ["[2301::c4f:45c2:57e6:e637:7f1a]/128","23.15.30.223/32"].
+        ipwhitelist: list of ipaddresses that are allowed to connect to the tunnel. Example: ["2301::c4f:45c2:57e6:e637:7f1a/128","23.15.30.223/32"].
                     Be carefull about the ipv6 syntax
 
         basicauth: dictionary of username:password. This dictionary be used for basic authentication. Example: {"hello": "world"}
@@ -1075,7 +1082,7 @@ def start_udptunnel(
 
         force: enable of disable force flag. Enabling it would cause to stop any existing tunnel with same token.
 
-        ipwhitelist: list of ipaddresses that are allowed to connect to the tunnel. Example: ["[2301::c4f:45c2:57e6:e637:7f1a]/128","23.15.30.223/32"].
+        ipwhitelist: list of ipaddresses that are allowed to connect to the tunnel. Example: ["2301::c4f:45c2:57e6:e637:7f1a/128","23.15.30.223/32"].
 
         webdebuggerport: Webdebugging port. Webdebugging would start only if valid port is provided. Example: 4300
 
