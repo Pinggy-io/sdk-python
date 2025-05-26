@@ -334,7 +334,7 @@ Start a tunnel inside a new thread and get reference to the tunnel.
 
     force: enable of disable force flag. Enabling it would cause to stop any existing tunnel with same token.
 
-    ipwhitelist: list of ipaddresses that are allowed to connect to the tunnel. Example: ["[2301::c4f:45c2:57e6:e637:7f1a]/128","23.15.30.223/32"].
+    ipwhitelist: list of ipaddresses that are allowed to connect to the tunnel. Example: ["2301::c4f:45c2:57e6:e637:7f1a/128","23.15.30.223/32"].
                 Be carefull about the ipv6 syntax
 
     basicauth: dictionary of username:password. This dictionary be used for basic authentication. Example: {"hello": "world"}
@@ -370,7 +370,7 @@ Start an udp tunnel inside a new thread and get reference to the tunnel.
 
     force: enable of disable force flag. Enabling it would cause to stop any existing tunnel with same token.
 
-    ipwhitelist: list of ipaddresses that are allowed to connect to the tunnel. Example: ["[2301::c4f:45c2:57e6:e637:7f1a]/128","23.15.30.223/32"].
+    ipwhitelist: list of ipaddresses that are allowed to connect to the tunnel. Example: ["2301::c4f:45c2:57e6:e637:7f1a/128","23.15.30.223/32"].
 
     webdebuggerport: Webdebugging port. Webdebugging would start only if valid port is provided. Example: 4300
 
