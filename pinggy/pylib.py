@@ -1,11 +1,9 @@
 
 import errno
 import ctypes
-import os
 import threading
 import shlex
 import threading
-import atexit
 
 from . import core
 
