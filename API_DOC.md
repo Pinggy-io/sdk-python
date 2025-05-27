@@ -295,7 +295,7 @@ Function to get the build timestamp as per the build-system.
 **Returns**:
 - **str**: build timestamp.
 
-### `disableLog()`
+### `disable_log()`
 
 Disable logging by the native library.
 
@@ -313,10 +313,10 @@ Get the libc version of the native. This information is accurate only for linux 
 **Returns**:
 - **str**: libc version.
 
-### `setLogPath(path)`
+### `set_log_path(path)`
 
 Set path where native library print its log. Use this function only if requires.
-To disable native library logging completly, use `disableLog` function.
+To disable native library logging completly, use `disable_log` function.
 
 **Arguments**:
 - **path (str)**: New log path. Path needs to have write permission.

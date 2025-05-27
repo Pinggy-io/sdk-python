@@ -10,7 +10,9 @@ import zipfile
 import tarfile
 
 from . import __version__ as version
+from . import pinggyexception
 
+PinggyNativeLoaderError = pinggyexception.PinggyNativeLoaderError
 
 def defaultLoader():
     # Get package directory
@@ -32,14 +34,14 @@ def defaultLoader():
 
     # Ensure the shared library exists
     if not os.path.exists(lib_path):
-        raise Exception("Could not find the require native libraries")
+        raise PinggyNativeLoaderError("Could not find the require native libraries. Try setting the environment variable `PINGGY_DL_NATIVE` to `true` to download the native libraries.")
 
     # Load the shared library
     try:
         cdll = ctypes.CDLL(lib_path)
         return cdll
     except Exception as err:
-        raise Exception("Could not load native library")
+        raise PinggyNativeLoaderError(f"Could not load native library. {err}. Try setting the environment variable `PINGGY_DL_NATIVE` to `true` to download the native libraries.")
 
 
 
@@ -99,7 +101,7 @@ def load_native():
                 ssl._create_default_https_context = ssl._create_unverified_context
             urllib.request.urlretrieve(url, cached_file_path)
         except Exception as err:
-            sys.exit(f"Failed to download shared library `{cached_file_path}` from `{url}`.\n{err}")
+            raise PinggyNativeLoaderError(f"Failed to download shared library `{cached_file_path}` from `{url}`. {err}")
 
     if not os.path.exists(lib_path) or os.path.getmtime(cached_file_path) > os.path.getmtime(lib_path):
         try:
@@ -114,7 +116,7 @@ def load_native():
             else:
                 sys.exit(f"Unsupported archive format: {cached_file_path}")
         except Exception as err:
-            sys.exit(f"Failed to load shared library. Ensure dependencies like OpenSSL are installed if required.\n{err}")
+            raise PinggyNativeLoaderError(f"Failed to load shared library. Ensure dependencies like OpenSSL are installed if required. {err}")
 
 
 
@@ -127,11 +129,17 @@ def load_native():
         cdll = ctypes.CDLL(lib_path)
         return cdll
     except Exception as err:
-        sys.exit(f"Failed to load shared library. Ensure dependencies like OpenSSL are installed if required.\n{err}")
-
-
+        raise PinggyNativeLoaderError(f"Failed to load shared library. Ensure dependencies like OpenSSL are installed if required. {err}")
 
 try:
     cdll = defaultLoader()
-except:
-    cdll = load_native()
+except PinggyNativeLoaderError as exp:
+    if os.environ.get("PINGGY_DL_NATIVE", "") != "":
+        cdll = load_native()
+    else:
+        raise exp
+
+# try:
+#     cdll = defaultLoader()
+# except:
+#     cdll = load_native()
