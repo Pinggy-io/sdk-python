@@ -437,7 +437,6 @@ class Tunnel:
             if thread:
                 t = threading.Thread(target=self.__start_serving)
                 self.__thread = t
-                t.daemon = True
                 t.start()
             else:
                 self.__start_serving()
@@ -691,7 +690,6 @@ class Tunnel:
     def argument(self):
         """str: tunnel arguments for header manipulation and others."""
         return self.__cmd
-        return core._get_string_via_cfunc(core.pinggy_config_get_argument, self.__configRef)
 
     @property
     def advanced_parsing(self):
