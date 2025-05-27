@@ -37,9 +37,11 @@ Example 3:
 """
 
 from .pylib import Tunnel, Channel, BaseTunnelHandler, \
-        setLogPath, disableLog, version, git_commit, \
-        build_timestamp, libc_version, build_os, \
-        start_tunnel, start_udptunnel
+        setLogPath, disableLog, set_log_path, disable_log, \
+        version, git_commit, build_timestamp, libc_version, \
+        build_os, start_tunnel, start_udptunnel
+
+from .pinggyexception import  PinggyNativeLoaderError
 
 # Specify the public API of the module
 __all__ = [
@@ -50,9 +52,12 @@ __all__ = [
     "start_udptunnel",
     "setLogPath",
     "disableLog",
+    "set_log_path",
+    "disable_log",
     "version",
     "git_commit",
     "build_timestamp",
     "libc_version",
-    "build_os"
+    "build_os",
+    "PinggyNativeLoaderError"
 ]

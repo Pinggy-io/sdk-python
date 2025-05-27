@@ -1,15 +1,30 @@
-
 import errno
 import ctypes
-import os
 import threading
 import shlex
 import threading
 
-from . import core
+from . import pinggyexception
+
+try:
+    from . import core
+except pinggyexception.PinggyNativeLoaderError as e:
+    class DummyCore:
+        def __init__(self, e):
+            self.loading_exception = e
+        def __getattr__(self, name):
+                raise self.loading_exception
+            # ImportError(
+            #         f"Could not import 'core'. Attempted to call '{name}' with args={args}, kwargs={kwargs}."
+            #     )
+
+        def __call__(self, *args, **kwargs):
+            raise self.loading_exception
+
+    core = DummyCore(e)
 
 
-def setLogPath(path):
+def set_log_path(path):
     """
     Set path where native library print its log. Use this function only if requires.
     To disable native library logging completly, use `disableLog` function.
@@ -20,11 +35,14 @@ def setLogPath(path):
     path = path if isinstance(path, bytes) else path.encode("utf-8")
     core.pinggy_set_log_path(path)
 
-def disableLog():
+def disable_log():
     """
     Disable logging by the native library.
     """
     core.pinggy_set_log_enable(False)
+
+setLogPath = set_log_path
+disableLog = disable_log
 
 def version():
     """
@@ -419,6 +437,7 @@ class Tunnel:
             if thread:
                 t = threading.Thread(target=self.__start_serving)
                 self.__thread = t
+                t.daemon = True
                 t.start()
             else:
                 self.__start_serving()
@@ -935,7 +954,7 @@ class Tunnel:
 
         if self.__headermodification is not None and len(self.__headermodification) > 0:
             for hm in self.__headermodification:
-                val.append(f"k:{hm}")
+                val.append(f"{hm}")
 
         if self.__xff:
             val.append("x:xff")
@@ -956,7 +975,7 @@ class Tunnel:
 
         if self.__cmd != "":
             argument = self.__cmd + " " + argument
-        print(argument)
+
         argument = argument if isinstance(argument, bytes) else argument.encode("utf-8")
         core.pinggy_config_set_argument(self.__configRef, argument)
 
