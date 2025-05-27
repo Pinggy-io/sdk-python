@@ -5,6 +5,7 @@ import os
 import threading
 import shlex
 import threading
+import atexit
 
 from . import core
 
@@ -419,6 +420,7 @@ class Tunnel:
             if thread:
                 t = threading.Thread(target=self.__start_serving)
                 self.__thread = t
+                t.daemon = True
                 t.start()
             else:
                 self.__start_serving()
@@ -935,7 +937,7 @@ class Tunnel:
 
         if self.__headermodification is not None and len(self.__headermodification) > 0:
             for hm in self.__headermodification:
-                val.append(f"k:{hm}")
+                val.append(f"{hm}")
 
         if self.__xff:
             val.append("x:xff")
