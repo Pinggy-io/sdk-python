@@ -560,12 +560,10 @@ class Tunnel:
             raise Exception("Tunnel is not resumable")
         while self.__continue_polling:
             ret = core.pinggy_tunnel_resume(self.__tunnelRef)
-            if ret == 0:
+            if ret:
                 continue
-            error = ctypes.get_errno()
-            if error != errno.EINTR:
-                self.__resumable = False
-                return
+            self.__resumable = False
+            return
 
     def __func_connected(self, userdata, ref):
         self.__eventHandler.connected()
