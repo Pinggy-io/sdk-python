@@ -931,8 +931,12 @@ class Tunnel:
             raise Exception("Tunnel is already connected, no modification allowed")
         self.__reverseproxy = reverseproxy
 
+    def getProcessedArguments(self):
+        if not self.__editableConfig:
+            return core.pinggy_config_get_argument(self.__configRef)
+        return self.__prepare_argument()
 
-    def __prepare_n_setargument(self):
+    def __prepare_argument(self):
         val = []
 
         if self.__ipwhitelist is not None and len(self.__ipwhitelist) > 0:
@@ -973,6 +977,11 @@ class Tunnel:
             argument = self.__cmd + " " + argument
 
         argument = argument if isinstance(argument, bytes) else argument.encode("utf-8")
+
+        return argument
+
+    def __prepare_n_setargument(self):
+        argument = self.__prepare_argument()
         core.pinggy_config_set_argument(self.__configRef, argument)
 
 

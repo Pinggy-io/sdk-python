@@ -1,0 +1,13 @@
+{
+    "python.defaultInterpreterPath": "/opt/homebrew/bin/python3",
+    "python.testing.unittestEnabled": true,
+    "python.envFile": "${workspaceFolder}/.vscode/.env",
+    "python.testing.unittestArgs": [
+        "-v",
+        "-s",
+        "./tests",
+        "-p",
+        "test_*.py"
+    ],
+    "python.testing.pytestEnabled": false
+}
