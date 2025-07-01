@@ -1,5 +1,5 @@
 import unittest
-from pinggy.pylib import Tunnel
+from pinggy.pylib import Tunnel, start_tunnel
 
 class TestTunnelProperties(unittest.TestCase):
     def setUp(self):
@@ -120,6 +120,11 @@ class TestTunnelProperties(unittest.TestCase):
         self.tunnel.bearerauth = None
         self.assertIsNone(self.tunnel.bearerauth)
         self.assertEqual(b'', self.tunnel.getProcessedArguments())
+
+class TestAfterTunnelStarted(unittest.TestCase):
+    def test_testIpWhiteList(self):
+        tunnel = start_tunnel(ipwhitelist="10.0.0.0/10", webdebuggerport=4300)
+
 
 
 if __name__ == '__main__':

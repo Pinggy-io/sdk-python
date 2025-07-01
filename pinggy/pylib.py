@@ -12,6 +12,8 @@ except pinggyexception.PinggyNativeLoaderError as e:
     class DummyCore:
         def __init__(self, e):
             self.loading_exception = e
+        def disable_sdk_log(self):
+            pass
         def __getattr__(self, name):
                 raise self.loading_exception
             # ImportError(
@@ -23,6 +25,7 @@ except pinggyexception.PinggyNativeLoaderError as e:
 
     core = DummyCore(e)
 
+core.disable_sdk_log()
 
 def set_log_path(path):
     """
@@ -1061,7 +1064,6 @@ def start_tunnel(
 
         serveraddress: User can set the server address to which pinggy would connect. Default: `a.pinggy.io:443`.
     """
-    disableLog()
     tun = Tunnel(server_address=serveraddress)
 
     tun.tcp_forward_to          = forwardto
@@ -1113,7 +1115,6 @@ def start_udptunnel(
         serveraddress: User can set the server address to which pinggy would connect. Default: `a.pinggy.io:443`.
     """
 
-    disableLog()
     tun = Tunnel(server_address=serveraddress)
 
     tun.udp_forward_to          = forwardto
