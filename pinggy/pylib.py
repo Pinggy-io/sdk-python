@@ -12,6 +12,8 @@ except pinggyexception.PinggyNativeLoaderError as e:
     class DummyCore:
         def __init__(self, e):
             self.loading_exception = e
+        def disable_sdk_log(self):
+            pass
         def __getattr__(self, name):
                 raise self.loading_exception
             # ImportError(
@@ -23,6 +25,7 @@ except pinggyexception.PinggyNativeLoaderError as e:
 
     core = DummyCore(e)
 
+core.disable_sdk_log()
 
 def set_log_path(path):
     """
@@ -931,8 +934,12 @@ class Tunnel:
             raise Exception("Tunnel is already connected, no modification allowed")
         self.__reverseproxy = reverseproxy
 
+    def getProcessedArguments(self):
+        if not self.__editableConfig:
+            return core.pinggy_config_get_argument(self.__configRef)
+        return self.__prepare_argument()
 
-    def __prepare_n_setargument(self):
+    def __prepare_argument(self):
         val = []
 
         if self.__ipwhitelist is not None and len(self.__ipwhitelist) > 0:
@@ -973,6 +980,11 @@ class Tunnel:
             argument = self.__cmd + " " + argument
 
         argument = argument if isinstance(argument, bytes) else argument.encode("utf-8")
+
+        return argument
+
+    def __prepare_n_setargument(self):
+        argument = self.__prepare_argument()
         core.pinggy_config_set_argument(self.__configRef, argument)
 
 
@@ -1052,7 +1064,6 @@ def start_tunnel(
 
         serveraddress: User can set the server address to which pinggy would connect. Default: `a.pinggy.io:443`.
     """
-    disableLog()
     tun = Tunnel(server_address=serveraddress)
 
     tun.tcp_forward_to          = forwardto
@@ -1104,7 +1115,6 @@ def start_udptunnel(
         serveraddress: User can set the server address to which pinggy would connect. Default: `a.pinggy.io:443`.
     """
 
-    disableLog()
     tun = Tunnel(server_address=serveraddress)
 
     tun.udp_forward_to          = forwardto

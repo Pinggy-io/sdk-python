@@ -402,3 +402,6 @@ def _get_string_via_cfunc(func, *arg):
     ln = func(*arg, buffer_size, buffer)
     res = buffer.value.decode('utf-8') if ln != 0 else ""
     return res
+
+def disable_sdk_log():
+    pinggy_set_log_enable(False)
