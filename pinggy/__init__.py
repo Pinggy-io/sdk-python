@@ -39,7 +39,7 @@ Example 3:
 from .pylib import Tunnel, Channel, BaseTunnelHandler, \
         setLogPath, disableLog, set_log_path, disable_log, \
         version, git_commit, build_timestamp, libc_version, \
-        build_os, start_tunnel, start_udptunnel
+        build_os, start_tunnel, start_udptunnel, enable_log
 
 from .pinggyexception import  PinggyNativeLoaderError
 
@@ -54,6 +54,7 @@ __all__ = [
     "disableLog",
     "set_log_path",
     "disable_log",
+    "enable_log",
     "version",
     "git_commit",
     "build_timestamp",

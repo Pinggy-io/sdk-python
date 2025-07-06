@@ -359,6 +359,8 @@ Start a tunnel inside a new thread and get reference to the tunnel.
 
     serveraddress: User can set the server address to which pinggy would connect. Default: `a.pinggy.io:443`.
 
+    udpforwardto: same as tcp forward to, however, it allows users to forward udp along with tcp. If user wants to forward only udp, use `start_udptunnel`.
+
 ### `start_udptunnel(forwardto: int | str, token: str = '', force: bool = False, ipwhitelist: list[str] | str | None = None, webdebuggerport: int = 4300, serveraddress: str = 'a.pinggy.io:443')`
 
 Start an udp tunnel inside a new thread and get reference to the tunnel.

@@ -44,6 +44,9 @@ def disable_log():
     """
     core.pinggy_set_log_enable(False)
 
+def enable_log():
+    core.pinggy_set_log_enable(True)
+
 setLogPath = set_log_path
 disableLog = disable_log
 
@@ -1025,7 +1028,8 @@ def start_tunnel(
         fullrequesturl: bool = False,
         allowpreflight: bool = False,
         reverseproxy: bool = True,
-        serveraddress: str = "a.pinggy.io:443"
+        serveraddress: str = "a.pinggy.io:443",
+        udpforwardto: int | str = 0
 ):
     """
     Start a tunnel inside a new thread and get reference to the tunnel.
@@ -1063,6 +1067,8 @@ def start_tunnel(
         reverseproxy: Pinggy by default runs in reverse proxy mode. However, it can be turned off by setting this flag `False`
 
         serveraddress: User can set the server address to which pinggy would connect. Default: `a.pinggy.io:443`.
+
+        udpforwardto: same as tcp forward to, however, it allows users to forward udp along with tcp. If user wants to forward only udp, use `start_udptunnel`.
     """
     tun = Tunnel(server_address=serveraddress)
 
@@ -1070,6 +1076,9 @@ def start_tunnel(
     tun.type                    = type
     tun.token                   = token
     tun.force                   = force
+
+    if bool(udpforwardto):
+        tun.udp_forward_to = udpforwardto
 
     if ipwhitelist is not None:
         tun.ipwhitelist = ipwhitelist
