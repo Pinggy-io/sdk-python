@@ -6,7 +6,7 @@ from pinggy import Tunnel
 # main function that can read command line arguments and use the same to call start_tunnel followed by printing the URLs
 # The options are:
 # The command format is:
-# pinggy [options] [token+][type+][force+]@server_address [arguments]
+# pinggy [options] [[token+][type+][force+]@server_address [arguments]]
 # -s, --server-address: The server address to connect to (default: "a.pinggy.io")
 # -R, --tcp-forward-to: The TCP address to forward to (default: "localhost:80"). It supports formats like [[[bindname:]bindport:]]localaddress:]localport
 # -U, --udp-forward-to: The UDP address to forward to (default: "localhost:53"). It supports formats like [[[bindname:]bindport:]]localaddress:]localport
@@ -48,33 +48,12 @@ def parse_server_address_and_type(server_address):
             elif p != "qr" and p != "aqr" and p != "auth":
                 if token is None:
                     token = p
-
     else:
         address = parts[0]
 
-    if tunnel_type is None and udp_type is None:
-        tunnel_type = "http"
-
     return address, tunnel_type, udp_type, token, force
 
-def main():
-
-    parser = argparse.ArgumentParser(description="Start a Pinggy tunnel with specified options.")
-    parser.add_argument("-s", "--server-address", default="a.pinggy.io", help="Server address to connect to")
-    parser.add_argument("-R", "--forward-to", default="localhost:80", help="TCP address to forward to")
-    # parser.add_argument("-U", "--udp-forward-to", default=None, help="UDP address to forward to")
-    parser.add_argument("-S", "--sni-server-name", default="a.pinggy.io", help="SNI server name to use")
-    parser.add_argument("-l", "--token", default=None, help="Token to use for the tunnel")
-    parser.add_argument("-p", "--port", type=int, default=443, help="Port to connect to")
-
-    args, unknown = parser.parse_known_args()
-
-    tun = Tunnel(server_address=args.server_address)
-    # tun.tcp_forward_to = args.tcp_forward_to
-    # tun.udp_forward_to = args.udp_forward_to
-    tun.sni_server_name = args.sni_server_name
-    # tun.token = args.token
-    arg_forward_to = args.forward_to
+def parse_forward_to(arg_forward_to):
     if arg_forward_to is not None:
         parts = arg_forward_to.split(":")
         if len(parts) == 1:
@@ -83,25 +62,73 @@ def main():
             arg_forward_to = ":".join(parts)
         elif len(parts) > 2:
             arg_forward_to = ":".join(parts[-2:])
+    return arg_forward_to
 
-    address, tunnel_type, udp_type, token, force = parse_server_address_and_type(args.server_address)
+def main():
+
+    parser = argparse.ArgumentParser(description="Start a Pinggy tunnel with specified options.")
+    # parser.add_argument("-s", "--server-address", default="a.pinggy.io", help="Server address to connect to")
+    parser.add_argument("-R", "--forward-to", default=None, help="TCP address to forward to")
+    parser.add_argument("-U", "--udp-forward-to", default=None, help="UDP address to forward to")
+    parser.add_argument("-S", "--sni-server-name", default="a.pinggy.io", help="SNI server name to use")
+    parser.add_argument("-l", "--token", default=None, help="Token to use for the tunnel")
+    parser.add_argument("-p", "--port", type=int, default=443, help="Port to connect to")
+
+    args, unknown = parser.parse_known_args()
+    unknownStartWith = 0
+    for i, x in enumerate(unknown):
+        if x.startswith("-"):
+            unknownStartWith = i + 1
+    unknown = unknown[unknownStartWith:]
+
+    server_address = "a.pinggy.io"
+    if len(unknown) >= 1:
+        server_address = unknown[0]
+
+
+    address, tunnel_type, udp_type, token, force = parse_server_address_and_type(server_address)
+
+    tun = Tunnel(server_address=address)
+    # tun.tcp_forward_to = args.tcp_forward_to
+    # tun.udp_forward_to = args.udp_forward_to
+    tun.sni_server_name = args.sni_server_name
+    # tun.token = args.token
+
+    tcp_forward_to = parse_forward_to(args.forward_to)
+    udp_forward_to = parse_forward_to(args.udp_forward_to)
+
     if address is not None:
         tun.server_address = address
 
-    if tunnel_type is not None:
-        tun.type = tunnel_type
-        tun.tcp_forward_to = arg_forward_to
-
-    if udp_type is not None:
-        tun.udp_forward_to = arg_forward_to
-
-    if token is not None:
-        tun.token = token
     if args.token is not None:
-        tun.token = args.token
+        tun.token = token
+    elif token is not None:
+        tun.token = token
+
+    if tunnel_type is None and udp_type is None and tcp_forward_to is None and udp_forward_to is None:
+        tcp_forward_to = "localhost:80"
+        tunnel_type = "http"
+    else:
+        if tunnel_type is not None or tcp_forward_to is not None:
+            if tunnel_type is None:
+                tunnel_type = "http"
+            if tcp_forward_to is None:
+                tcp_forward_to = "localhost:80"
+        if udp_type is not None or udp_forward_to is not None:
+            if udp_type is None:
+                udp_type = "udp"
+            if udp_forward_to is None:
+                udp_forward_to = "localhost:53"
 
     if force:
         tun.force = True
+
+    if udp_type is not None:
+        tun.udp_type = udp_type
+        tun.udp_forward_to = udp_forward_to
+    if tunnel_type is not None:
+        tun.type = tunnel_type
+        tun.tcp_forward_to = tcp_forward_to
 
     # Process additional arguments
     for arg in unknown:
