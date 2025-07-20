@@ -362,6 +362,7 @@ class Tunnel:
         self.server_address                         = server_address
 
         self.__cmd                                  = ""
+        self.__localservertls                         = None
         self.__ipwhitelist                          = None
         self.__basicauth                            = None
         self.__bearerauth                           = None
@@ -856,6 +857,8 @@ class Tunnel:
             raise Exception("Tunnel is already connected, no modification allowed")
         self.__headermodification = headermodification
 
+    def remove_header(self, header_name):
+        self.removeHeader(header_name)
     def removeHeader(self, header_name):
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
@@ -863,6 +866,8 @@ class Tunnel:
             self.__headermodification = []
         self.__headermodification.append(f"r:{header_name}")
 
+    def add_header(self, header_name, new_value):
+        self.addHeader(header_name, new_value)
     def addHeader(self, header_name, new_value):
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
@@ -870,12 +875,31 @@ class Tunnel:
             self.__headermodification = []
         self.__headermodification.append(f"a:{header_name}:{new_value}")
 
+    def update_header(self, header_name, new_value):
+        self.updateHeader(header_name, new_value)
     def updateHeader(self, header_name, new_value):
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
         if self.__headermodification is None:
             self.__headermodification = []
         self.__headermodification.append(f"a:{header_name}:{new_value}")
+
+
+    @property
+    def localservertls(self):
+        """str|None: return current localservertls config,"""
+        return self.__localservertls
+
+    @localservertls.setter
+    def localservertls(self, val: str):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        if val is None or val == "":
+            self.__localservertls = None
+            return
+        if type(val) != str:
+            raise Exception("Only string type allowed")
+        self.__localservertls = val
 
 
     @property
@@ -965,6 +989,9 @@ class Tunnel:
         if self.__xff:
             val.append("x:xff")
 
+        if self.__localservertls:
+            val.append
+
         if self.__httpsonly:
             val.append("x:https")
 
@@ -976,6 +1003,9 @@ class Tunnel:
 
         if not self.__reverseproxy:         # bool = False
             val.append("x:noreverseproxy")
+
+        if self.__localservertls is not None and self.__localservertls != "":
+            val.append("x:localserverlts:"+self.__localservertls)
 
         argument = shlex.join(val)
 

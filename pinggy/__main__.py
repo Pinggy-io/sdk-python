@@ -7,10 +7,8 @@ from pinggy import Tunnel
 # The options are:
 # The command format is:
 # pinggy [options] [[token+][type+][force+]@server_address [arguments]]
-# -s, --server-address: The server address to connect to (default: "a.pinggy.io")
 # -R, --tcp-forward-to: The TCP address to forward to (default: "localhost:80"). It supports formats like [[[bindname:]bindport:]]localaddress:]localport
 # -U, --udp-forward-to: The UDP address to forward to (default: "localhost:53"). It supports formats like [[[bindname:]bindport:]]localaddress:]localport
-# -S, --sni-server-name: The SNI server name to use (default: "a.pinggy.io")
 # -l, --token: The token to use (default: None)
 # -p, --port: The port to connect to (default: 443)
 # Arguments are:
@@ -64,27 +62,34 @@ def parse_forward_to(arg_forward_to):
             arg_forward_to = ":".join(parts[-2:])
     return arg_forward_to
 
+def parse_local_forward(forward):
+    if forward is None:
+        return 0
+    parts = forward.split(":")
+    if len(parts) >= 3:
+        return int(parts[-3])
+    return 0
+
 def main():
 
     parser = argparse.ArgumentParser(description="Start a Pinggy tunnel with specified options.")
     # parser.add_argument("-s", "--server-address", default="a.pinggy.io", help="Server address to connect to")
     parser.add_argument("-R", "--forward-to", default=None, help="TCP address to forward to")
     parser.add_argument("-U", "--udp-forward-to", default=None, help="UDP address to forward to")
-    parser.add_argument("-S", "--sni-server-name", default="a.pinggy.io", help="SNI server name to use")
+    parser.add_argument("-S", "--sni-server-name", default="a.pinggy.io", help=argparse.SUPPRESS)
     parser.add_argument("-l", "--token", default=None, help="Token to use for the tunnel")
-    parser.add_argument("-p", "--port", type=int, default=443, help="Port to connect to")
+    parser.add_argument("-p", "--port", type=int, default=443, help=argparse.SUPPRESS)
+    parser.add_argument("-t", "--ignore1", help=argparse.SUPPRESS)
+    parser.add_argument("-T", "--ignore2", help=argparse.SUPPRESS)
+    parser.add_argument("-n", "--ignore3", help=argparse.SUPPRESS)
+    parser.add_argument("-N", "--ignore4", help=argparse.SUPPRESS)
+    parser.add_argument("-L", "--web-debug", default=0, help="enable webdebugging")
+    parser.add_argument("server_info", nargs=argparse.REMAINDER, help="[username]@servername and any extra arguments")
 
-    args, unknown = parser.parse_known_args()
-    unknownStartWith = 0
-    for i, x in enumerate(unknown):
-        if x.startswith("-"):
-            unknownStartWith = i + 1
-    unknown = unknown[unknownStartWith:]
+    args = parser.parse_args()
 
-    server_address = "a.pinggy.io"
-    if len(unknown) >= 1:
-        server_address = unknown[0]
-
+    server_address = args.server_info[0]
+    unknown = args.server_info[1:]
 
     address, tunnel_type, udp_type, token, force = parse_server_address_and_type(server_address)
 
@@ -96,6 +101,8 @@ def main():
 
     tcp_forward_to = parse_forward_to(args.forward_to)
     udp_forward_to = parse_forward_to(args.udp_forward_to)
+
+    web_debug_port = parse_local_forward(args.web_debug)
 
     if address is not None:
         tun.server_address = address
@@ -142,29 +149,30 @@ def main():
             tun.update_header(header[0], header[1] if len(header) > 1 else "")
         elif arg.startswith("b:"):
             credentials = arg[2:].split(":")
-            tun.set_basic_auth(credentials[0], credentials[1] if len(credentials) > 1 else "")
+            if len(credentials) > 1:
+                tun.basicauth = {credentials[0]: credentials[1]}
         elif arg.startswith("k:"):
-            tun.set_bearer_key(arg[2:])
+            tun.bearerauth = arg[2:]
         elif arg.startswith("w:"):
             ips = arg[2:].split(",")
-            tun.set_allowed_ips(ips)
+            tun.ipwhitelist = ips
         elif arg.startswith("x:"):
             option = arg[2:]
-            if option == "https":
-                tun.ssl = True
-            elif option == "xff":
-                tun.use_xff_header = True
-            elif option == "fullurl":
-                tun.full_url_in_header = True
-            elif option.startswith("localServerTls"):
+            if option.lower() == "https":
+                tun.httpsonly = True
+            elif option.lower() == "xff":
+                tun.xff = True
+            elif option.lower() == "fullurl":
+                tun.fullrequesturl = True
+            elif option.lower().startswith("localservertls"):
                 parts = option.split(":")
-                tun.local_server_tls = True
-                if len(parts) > 1:
-                    tun.sni_server_name = parts[1]
-            elif option == "passpreflight":
-                tun.pass_preflight = True
-            elif option == "noreverseproxy":
-                tun.use_reverse_proxy = False
+                tun.localservertls = "localhost"
+                if len(parts) > 1 and parts[1] != "":
+                    tun.localservertls = parts[1]
+            elif option.lower() == "passpreflight":
+                tun.allowpreflight = True
+            elif option.lower() == "noreverseproxy":
+                tun.reverseproxy = False
 
     if not tun.connect():
         print("Failed to connect to the server.")
@@ -172,6 +180,8 @@ def main():
     if not tun.request_primary_forwarding():
         print("Failed to request primary forwarding.")
         return
+    if web_debug_port > 0:
+        tun.start_web_debugging(web_debug_port)
     print("Tunnel URLs:", tun.urls)
     tun.start()
 

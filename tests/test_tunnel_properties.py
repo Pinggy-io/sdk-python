@@ -121,6 +121,26 @@ class TestTunnelProperties(unittest.TestCase):
         self.assertIsNone(self.tunnel.bearerauth)
         self.assertEqual(b'', self.tunnel.getProcessedArguments())
 
+    def test_localservertls_property(self):
+        self.assertTrue(hasattr(self.tunnel, 'localservertls'))
+        # Default should be empty
+        self.assertIsNone(self.tunnel.localservertls)
+        # Set localservertls
+        self.tunnel.localservertls = "localhost"
+        self.assertEqual(self.tunnel.localservertls, "localhost")
+        # Set localservertls
+        self.tunnel.localservertls = "test.local"
+        self.assertEqual(self.tunnel.localservertls, "test.local")
+        # Reset localservertls
+        self.tunnel.localservertls = None
+        self.assertIsNone(self.tunnel.localservertls)
+        # Set localservertls
+        self.tunnel.localservertls = "SomeValue"
+        self.assertEqual(self.tunnel.localservertls, "SomeValue")
+        # Reset localservertls
+        self.tunnel.localservertls = ""
+        self.assertIsNone(self.tunnel.localservertls)
+
 class TestAfterTunnelStarted(unittest.TestCase):
     def test_testIpWhiteList(self):
         tunnel = start_tunnel(ipwhitelist="10.0.0.0/10", webdebuggerport=4300)
