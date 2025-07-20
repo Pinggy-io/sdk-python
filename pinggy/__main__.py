@@ -32,11 +32,13 @@ def parse_server_address_and_type(server_address):
     udp_type = None
     address = None
 
-    parts = server_address.lower().split("@")
+    parts = server_address.split("@")
     if len(parts) == 2:
         type_and_token, address = parts
         type_and_token_parts = type_and_token.split("+")
         for p in type_and_token_parts:
+            orig = p
+            p = p.lower()
             if p == "force":
                 force = True
             elif p == "udp":
@@ -45,7 +47,7 @@ def parse_server_address_and_type(server_address):
                 tunnel_type = p
             elif p != "qr" and p != "aqr" and p != "auth":
                 if token is None:
-                    token = p
+                    token = orig
     else:
         address = parts[0]
 
