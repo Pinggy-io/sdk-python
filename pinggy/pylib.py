@@ -362,7 +362,7 @@ class Tunnel:
         self.server_address                         = server_address
 
         self.__cmd                                  = ""
-        self.__localservertls                         = None
+        self.__localservertls                       = None
         self.__ipwhitelist                          = None
         self.__basicauth                            = None
         self.__bearerauth                           = None
@@ -1053,6 +1053,7 @@ def start_tunnel(
         bearerauth:  list[str]|str|None = None,
         headermodification: list[str]|None = None,
         webdebuggerport: int = 0,
+        localservertls: str|bool = False,
         xff: bool = False,
         httpsonly: bool = False,
         fullrequesturl: bool = False,
@@ -1086,6 +1087,9 @@ def start_tunnel(
 
         webdebuggerport: Webdebugging port. Webdebugging would start only if valid port is provided. Example: 4300
 
+        localservertls: This flag enables TLS for the local server. If it is a string, it would be used as the server name for SNI. If it is True, it would be set to "localhost" by default.
+                    If it is False, it would be set to None. Default: False
+
         xff: With this flag, pinggy adds `X-Forwarded-For` with the request header.
 
         httpsonly: This flag make sure that the visitor uses only the https. Any request to http would the redirected to https url.
@@ -1118,6 +1122,11 @@ def start_tunnel(
         tun.bearerauth = bearerauth
     if headermodification is not None:
         tun.headermodification = headermodification
+
+    if type(localservertls) == str:
+        tun.localservertls = localservertls
+    elif localservertls:
+        tun.localservertls = "localhost"
 
     tun.xff                     = xff
     tun.httpsonly               = httpsonly
