@@ -347,6 +347,8 @@ Start a tunnel inside a new thread and get reference to the tunnel.
 
     webdebuggerport: Webdebugging port. Webdebugging would start only if valid port is provided. Example: 4300
 
+    localservertls: This flag enables TLS for the local server. If it is a string, it would be used as the server name for SNI. If it is True, it would be set to "localhost" by default. If it is False, it would be set to None. Default: False
+
     xff: With this flag, pinggy adds `X-Forwarded-For` with the request header.
 
     httpsonly: This flag make sure that the visitor uses only the https. Any request to http would the redirected to https url.
