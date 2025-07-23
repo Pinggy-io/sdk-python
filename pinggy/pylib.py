@@ -1123,7 +1123,7 @@ def start_tunnel(
     if headermodification is not None:
         tun.headermodification = headermodification
 
-    if type(localservertls) == str:
+    if isinstance(localservertls, str):
         tun.localservertls = localservertls
     elif localservertls:
         tun.localservertls = "localhost"
