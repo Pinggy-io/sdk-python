@@ -85,7 +85,7 @@ def main():
     parser.add_argument("-T", "--ignore2", help=argparse.SUPPRESS)
     parser.add_argument("-n", "--ignore3", help=argparse.SUPPRESS)
     parser.add_argument("-N", "--ignore4", help=argparse.SUPPRESS)
-    parser.add_argument("-L", "--web-debug", default=0, help="enable webdebugging")
+    parser.add_argument("-L", "--web-debug", default=None, help="enable webdebugging")
     parser.add_argument("server_info", nargs=argparse.REMAINDER, help="[username]@servername and any extra arguments")
 
     args = parser.parse_args()
