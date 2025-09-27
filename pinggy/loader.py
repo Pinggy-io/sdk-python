@@ -14,7 +14,7 @@ from . import pinggyexception
 
 PinggyNativeLoaderError = pinggyexception.PinggyNativeLoaderError
 
-def defaultLoader():
+def get_lib_path():
     # Get package directory
     package_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -36,6 +36,12 @@ def defaultLoader():
     if not os.path.exists(lib_path):
         raise PinggyNativeLoaderError("Could not find the require native libraries. Try setting the environment variable `PINGGY_DL_NATIVE` to `true` to download the native libraries.")
 
+    return lib_path
+
+def defaultLoader():
+    lib_path = os.environ.get("LIBPINGGY_LIBPATH", "")
+    if lib_path == "":
+        lib_path = get_lib_path()
     # Load the shared library
     try:
         cdll = ctypes.CDLL(lib_path)

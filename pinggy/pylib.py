@@ -55,7 +55,7 @@ def version():
     Returns:
         str: libpinggy version.
     """
-    return core._get_string_via_cfunc(core.pinggy_version)
+    return core.pinggy_version_len()
 
 def git_commit():
     """
@@ -64,7 +64,7 @@ def git_commit():
     Returns:
         str: git commit hash.
     """
-    return core._get_string_via_cfunc(core.pinggy_git_commit)
+    return core.pinggy_git_commit_len()
 
 def build_timestamp():
     """
@@ -73,7 +73,7 @@ def build_timestamp():
     Returns:
         str: build timestamp.
     """
-    return core._get_string_via_cfunc(core.pinggy_build_timestamp)
+    return core.pinggy_build_timestamp_len()
 
 def libc_version():
     """
@@ -82,7 +82,7 @@ def libc_version():
     Returns:
         str: libc version.
     """
-    return core._get_string_via_cfunc(core.pinggy_libc_version)
+    return core.pinggy_libc_version_len()
 
 def build_os():
     """
@@ -91,7 +91,7 @@ def build_os():
     Returns:
         str: os detail.
     """
-    return core._get_string_via_cfunc(core.pinggy_build_os)
+    return core.pinggy_build_os_len()
 
 
 class Channel:
@@ -102,18 +102,18 @@ class Channel:
     """
     def __init__(self, channelRef):
         self.__channelRef       = channelRef
-        self.__data_received_cb = core.pinggy_channel_data_received_cb_t(self.__func_data_received)
-        self.__ready_to_send_cb = core.pinggy_channel_ready_to_send_cb_t(self.__func_ready_to_send)
-        self.__error_cb         = core.pinggy_channel_error_cb_t(self.__func_error)
-        self.__cleanup_cb       = core.pinggy_channel_cleanup_cb_t(self.__func_cleanup)
+        self.__data_received_cb = core.pinggy_channel_on_data_received_cb_t(self.__func_data_received)
+        self.__ready_to_send_cb = core.pinggy_channel_on_ready_to_send_cb_t(self.__func_ready_to_send)
+        self.__error_cb         = core.pinggy_channel_on_error_cb_t(self.__func_error)
+        self.__cleanup_cb       = core.pinggy_channel_on_cleanup_cb_t(self.__func_cleanup)
 
-        if not core.pinggy_tunnel_channel_set_data_received_callback(self.__channelRef, self.__data_received_cb, None):
+        if not core.pinggy_tunnel_channel_set_on_data_received_callback(self.__channelRef, self.__data_received_cb, None):
             print(f"Could not setup callback `pinggy_channel_data_received_cb_t` for channel {self.__channelRef}")
-        if not core.pinggy_tunnel_channel_set_ready_to_send_callback(self.__channelRef, self.__ready_to_send_cb, None):
+        if not core.pinggy_tunnel_channel_set_on_ready_to_send_callback(self.__channelRef, self.__ready_to_send_cb, None):
             print(f"Could not setup callback `pinggy_channel_ready_to_send_cb_t` for channel {self.__channelRef}")
-        if not core.pinggy_tunnel_channel_set_error_callback(self.__channelRef, self.__error_cb, None):
+        if not core.pinggy_tunnel_channel_set_on_error_callback(self.__channelRef, self.__error_cb, None):
             print(f"Could not setup callback `pinggy_channel_error_cb_t` for channel {self.__channelRef}")
-        if not core.pinggy_tunnel_channel_set_cleanup_callback(self.__channelRef, self.__cleanup_cb, None):
+        if not core.pinggy_tunnel_channel_set_on_cleanup_callback(self.__channelRef, self.__cleanup_cb, None):
             print(f"Could not setup callback `pinggy_channel_cleanup_cb_t` for channel {self.__channelRef}")
 
     def __func_data_received(self, userdata, channelRef):
@@ -149,11 +149,11 @@ class Channel:
     def get_dest_port(self):
         return core.pinggy_tunnel_channel_get_dest_port(self.__channelRef)
     def get_dest_host(self):
-        return core._get_string_via_cfunc(core.pinggy_tunnel_channel_get_dest_host, self.__channelRef)
+        return core.pinggy_tunnel_channel_get_dest_host_len(self.__channelRef)
     def get_src_port(self):
         return core.pinggy_tunnel_channel_get_src_port(self.__channelRef)
     def get_src_host(self):
-        return core._get_string_via_cfunc(core.pinggy_tunnel_channel_get_src_host, self.__channelRef)
+        return core.pinggy_tunnel_channel_get_src_host_len(self.__channelRef)
 
 class BaseTunnelHandler:
     """
@@ -274,6 +274,7 @@ class BaseTunnelHandler:
     def reconnecting(self, retry_cnt):
         pass
     def reconnection_completed(self):
+        print(self.tunnel.urls)
         pass
     def reconnection_failed(self, retry_cnt):
         pass
@@ -374,18 +375,6 @@ class Tunnel:
         self.authentication_messages                = []
         self.tunnel_statup_messages                 = []
         self.server_address                         = server_address
-
-        self.__cmd                                  = ""
-        self.__localservertls                       = None
-        self.__ipwhitelist                          = None
-        self.__basicauth                            = None
-        self.__bearerauth                           = None
-        self.__headermodification                   = None
-        self.__xff                                  = False
-        self.__httpsonly                            = False
-        self.__fullrequesturl                       = False
-        self.__allowpreflight                       = False
-        self.__reverseproxy                         = True
 
         if tcp_forward_to is not None:
             self.tcp_forward_to                     = tcp_forward_to
@@ -495,8 +484,6 @@ class Tunnel:
             raise Exception("Synchronization error")
         locked = True
 
-        self.__prepare_n_setargument() #set the cmd and seal it
-
         self.__editableConfig = False
         self.__connected = True
         self.__resumable = core.pinggy_tunnel_connect(self.__tunnelRef)
@@ -579,19 +566,19 @@ class Tunnel:
         """
         core.pinggy_tunnel_stop_usage_update(self.__tunnelRef)
 
-    def get_current_usages(self):
+    @property
+    def current_usages(self):
         """
         Get the usage.
         """
-        usages = core.pinggy_tunnel_get_current_usages(self.__tunnelRef)
-        usages = usages.decode("utf-8")
+        usages = core.pinggy_tunnel_get_current_usages_len(self.__tunnelRef)
         if usages == "" or usages is None:
             return None
         return json.loads(usages)
 
-    def get_greeting_msgs(self):
-        msgs = core.pinggy_tunnel_get_greeting_msgs(self.__tunnelRef)
-        msgs = msgs.decode("utf-8")
+    @property
+    def greeting_msgs(self):
+        msgs = core.pinggy_tunnel_get_greeting_msgs_len(self.__tunnelRef)
         if msgs == "" or msgs is None:
             return None
         return json.loads(msgs)
@@ -717,12 +704,12 @@ class Tunnel:
         str: pinggy server address. The default server address is `a.pinggy.io`. You can also add the
             port as follows: `a.pinggy.io:443`.
         """
-        return core._get_string_via_cfunc(core.pinggy_config_get_server_address, self.__configRef)
+        return core.pinggy_config_get_server_address(self.__configRef)
 
     @property
     def token(self):
         """str: Token for the tunnel. One can it from `dashboard.pinggy.io`"""
-        return core._get_string_via_cfunc(core.pinggy_config_get_token, self.__configRef)
+        return core.pinggy_config_get_token(self.__configRef)
 
     @property
     def type(self):
@@ -730,14 +717,14 @@ class Tunnel:
         str: Tunnel type or mode. This is only for TCP type. So, the accepted values are 'http',
             'tcp', 'tls' and 'tlstcp'. Default is 'http'.
         """
-        return core._get_string_via_cfunc(core.pinggy_config_get_type, self.__configRef)
+        return core.pinggy_config_get_type(self.__configRef)
 
     @property
     def udp_type(self):
         """
         str: Tunnel type or mode. This is only for UDP type. currently, only accepted value is 'udp'.
         """
-        return core._get_string_via_cfunc(core.pinggy_config_get_udp_type, self.__configRef)
+        return core.pinggy_config_get_udp_type(self.__configRef)
 
     @property
     def tcp_forward_to(self):
@@ -749,14 +736,14 @@ class Tunnel:
 
             >>> tunnel.tcp_forward_to = "localhost:8080"
         """
-        return core._get_string_via_cfunc(core.pinggy_config_get_tcp_forward_to, self.__configRef)
+        return core.pinggy_config_get_tcp_forward_to(self.__configRef)
 
     @property
     def udp_forward_to(self):
         """
         str: Similar to `tcp_forward_to`. However, it is for udp tunnel.
         """
-        return core._get_string_via_cfunc(core.pinggy_config_get_udp_forward_to, self.__configRef)
+        return core.pinggy_config_get_udp_forward_to(self.__configRef)
 
     @property
     def force(self):
@@ -766,7 +753,7 @@ class Tunnel:
     @property
     def argument(self):
         """str: tunnel arguments for header manipulation and others."""
-        return self.__cmd
+        return core.pinggy_config_get_argument_len(self.__configRef)
 
     @property
     def advanced_parsing(self):
@@ -781,7 +768,7 @@ class Tunnel:
 
     @property
     def sni_server_name(self):
-        return core._get_string_via_cfunc(core.pinggy_config_get_sni_server_name, self.__configRef)
+        return core.pinggy_config_get_sni_server_name(self.__configRef)
 
     @property
     def insecure(self):
@@ -790,6 +777,14 @@ class Tunnel:
     @property
     def auto_reconnect(self):
         return core.pinggy_config_get_auto_reconnect(self.__configRef)
+
+    @property
+    def max_reconnect_attempts(self):
+        return core.pinggy_config_get_max_reconnect_attempts(self.__configRef)
+
+    @property
+    def reconnect_interval(self):
+        return core.pinggy_config_get_reconnect_interval(self.__configRef)
 
     #////////////////////////////////
 
@@ -853,7 +848,7 @@ class Tunnel:
         if type(val) != str:
             raise Exception("Only string is allowed")
 
-        self.__cmd = val
+        core.pinggy_config_set_argument(self.__configRef, val)
 
     @advanced_parsing.setter
     def advanced_parsing(self, val):
@@ -886,12 +881,23 @@ class Tunnel:
             raise Exception("Tunnel is already connected, no modification allowed")
         core.pinggy_config_set_auto_reconnect(self.__configRef, val)
 
+    @max_reconnect_attempts.setter
+    def max_reconnect_attempts(self, val):
+        return core.pinggy_config_set_max_reconnect_attempts(self.__configRef, val)
+
+    @reconnect_interval.setter
+    def reconnect_interval(self, val):
+        return core.pinggy_config_set_reconnect_interval(self.__configRef, val)
+
     #//////////////////////
 
     @property
     def ipwhitelist(self):
         """list[str]|None: List of IP/IP ranges that allowed to connect to the tunnel. SDK does not verify the IP"""
-        return self.__ipwhitelist
+        ipw = core.pinggy_config_get_ip_white_list_len(self.__configRef)
+        if ipw == "" or ipw is None:
+            return None
+        return json.loads(ipw)
 
     @ipwhitelist.setter
     def ipwhitelist(self, ipwhitelist: list[str]|str):
@@ -899,25 +905,35 @@ class Tunnel:
             raise Exception("Tunnel is already connected, no modification allowed")
         if type(ipwhitelist) == str:
             ipwhitelist = [ipwhitelist]
-        self.__ipwhitelist = ipwhitelist
+        if ipwhitelist is None:
+            ipwhitelist = []
+        core.pinggy_config_set_ip_white_list(self.__configRef, json.dumps(ipwhitelist))
+        # self.__ipwhitelist = ipwhitelist
 
 
     @property
     def basicauth(self):
         """dict[str, str]|None: List of username and correstponding password."""
-        return self.__basicauth
+        ba = core.pinggy_config_get_basic_auths_len(self.__configRef)
+        return json.loads(ba)
 
     @basicauth.setter
-    def basicauth(self, basicauth:  dict[str,str]):
+    def basicauth(self, basicauth:  list[dict[str,str]]|dict[str,str]):
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
-        self.__basicauth = basicauth
+        if type(basicauth) == dict:
+            basicauth = [{"username":u, "password": p} for u,p in basicauth.items()]
+        if basicauth is None:
+            basicauth = []
+        core.pinggy_config_set_basic_auths(self.__configRef, json.dumps(basicauth))
+        # self.__basicauth = basicauth
 
 
     @property
     def bearerauth(self):
         """list[str]|None: list of key for bearer authentication"""
-        return self.__bearerauth
+        ba = core.pinggy_config_get_bearer_token_auths_len(self.__configRef)
+        return json.loads(ba)
 
     @bearerauth.setter
     def bearerauth(self, bearerauth:  list[str]|str):
@@ -925,178 +941,130 @@ class Tunnel:
             raise Exception("Tunnel is already connected, no modification allowed")
         if type(bearerauth) == str:
             bearerauth = [bearerauth]
-        self.__bearerauth = bearerauth
+        if bearerauth is None:
+            bearerauth = []
+        core.pinggy_config_set_bearer_token_auths(self.__configRef, json.dumps(bearerauth))
+        # self.__bearerauth = bearerauth
 
 
     @property
     def headermodification(self):
         """list[str]|None: list of header modifications. Check https://pinggy.io/docs/advanced/live_header/ for more details"""
-        return self.__headermodification
+        ret = core.pinggy_config_get_header_manipulations_len(self.__configRef)
+        return json.loads(ret)
 
     @headermodification.setter
-    def headermodification(self, headermodification: list[str]):
+    def headermodification(self, headermodification: list[dict[str, str]]):
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
-        self.__headermodification = headermodification
+        if headermodification is None:
+            headermodification = []
+        core.pinggy_config_set_header_manipulations(self.__configRef, json.dumps(headermodification))
 
     def remove_header(self, header_name):
         self.removeHeader(header_name)
     def removeHeader(self, header_name):
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
-        if self.__headermodification is None:
-            self.__headermodification = []
-        self.__headermodification.append(f"r:{header_name}")
+        headermod = self.headermodification
+        headermod.append({"type": "remove", "key": header_name})
+        self.headermodification = headermod
 
     def add_header(self, header_name, new_value):
         self.addHeader(header_name, new_value)
     def addHeader(self, header_name, new_value):
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
-        if self.__headermodification is None:
-            self.__headermodification = []
-        self.__headermodification.append(f"a:{header_name}:{new_value}")
+
+        headermod = self.headermodification
+        headermod.append({"type": "add", "key": header_name, "value": [new_value]})
+        self.headermodification = headermod
 
     def update_header(self, header_name, new_value):
         self.updateHeader(header_name, new_value)
     def updateHeader(self, header_name, new_value):
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
-        if self.__headermodification is None:
-            self.__headermodification = []
-        self.__headermodification.append(f"a:{header_name}:{new_value}")
 
+        headermod = self.headermodification
+        headermod.append({"type": "update", "key": header_name, "value": [new_value]})
+        self.headermodification = headermod
 
     @property
     def localservertls(self):
-        """str|None: return current localservertls config,"""
-        return self.__localservertls
+        """str: return current localservertls config,"""
+        x = core.pinggy_config_get_local_server_tls_len(self.__configRef)
+        return x
 
     @localservertls.setter
     def localservertls(self, val: str):
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
         if val is None or val == "":
-            self.__localservertls = None
-            return
+            val = ""
         if type(val) != str:
             raise Exception("Only string type allowed")
-        self.__localservertls = val
+        core.pinggy_config_set_local_server_tls(self.__configRef, val)
 
 
     @property
     def xff(self):
         """bool: whethere xff is set or not."""
-        return self.__xff
+        return core.pinggy_config_get_x_forwarded_for(self.__configRef)
 
     @xff.setter
     def xff(self, xff: bool):
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
-        self.__xff = xff
+        core.pinggy_config_set_x_forwarded_for(self.__configRef, xff)
 
 
     @property
     def httpsonly(self):
         """bool: whether https only is set or not"""
-        return self.__httpsonly
+        return core.pinggy_config_get_https_only(self.__configRef)
 
     @httpsonly.setter
     def httpsonly(self, httpsonly: bool):
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
-        self.__httpsonly = httpsonly
+        core.pinggy_config_set_https_only(self.__configRef, httpsonly)
 
 
     @property
     def fullrequesturl(self):
         """bool: request full url. if this flag is set, full original url would be pass through `X-Pinggy-Url` header in the request"""
-        return self.__fullrequesturl
+        return core.pinggy_config_get_original_request_url(self.__configRef)
 
     @fullrequesturl.setter
     def fullrequesturl(self, fullrequesturl: bool):
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
-        self.__fullrequesturl = fullrequesturl
+        core.pinggy_config_set_original_request_url(self.__configRef, fullrequesturl)
 
 
     @property
     def allowpreflight(self):
         """bool: allow preflight requests to pass through without processing"""
-        return self.__allowpreflight
+        return core.pinggy_config_get_allow_preflight(self.__configRef)
 
     @allowpreflight.setter
     def allowpreflight(self, allowpreflight: bool):
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
-        self.__allowpreflight = allowpreflight
+        core.pinggy_config_set_allow_preflight(self.__configRef, allowpreflight)
 
 
     @property
     def reverseproxy(self):
         """"bool: enables reverseproxy mode. default is true."""
-        return self.__reverseproxy
+        return core.pinggy_config_get_reverse_proxy(self.__configRef)
 
     @reverseproxy.setter
     def reverseproxy(self, reverseproxy: bool):
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
-        self.__reverseproxy = reverseproxy
-
-    def getProcessedArguments(self):
-        if not self.__editableConfig:
-            return core.pinggy_config_get_argument(self.__configRef)
-        return self.__prepare_argument()
-
-    def __prepare_argument(self):
-        val = []
-
-        if self.__ipwhitelist is not None and len(self.__ipwhitelist) > 0:
-            whitelist = "w:"
-            whitelist += ",".join(self.__ipwhitelist)
-            val.append(whitelist)
-
-        if self.__basicauth is not None and len(self.__basicauth) > 0:
-            for u,p in self.__basicauth.items():
-                val.append(f"b:{u}:{p}")
-
-        if self.__bearerauth is not None and len(self.__bearerauth) > 0:
-            for auth in self.__bearerauth:
-                val.append(f"k:{auth}")
-
-        if self.__headermodification is not None and len(self.__headermodification) > 0:
-            for hm in self.__headermodification:
-                val.append(f"{hm}")
-
-        if self.__xff:
-            val.append("x:xff")
-
-        if self.__localservertls:
-            val.append
-
-        if self.__httpsonly:
-            val.append("x:https")
-
-        if self.__fullrequesturl:       # bool = False
-            val.append("x:fullurl")
-
-        if self.__allowpreflight:       # bool = False
-            val.append("x:passpreflight")
-
-        if not self.__reverseproxy:         # bool = False
-            val.append("x:noreverseproxy")
-
-        if self.__localservertls is not None and self.__localservertls != "":
-            val.append("x:localserverlts:"+self.__localservertls)
-
-        argument = shlex.join(val)
-
-        if self.__cmd != "":
-            argument = self.__cmd + " " + argument
-
-        argument = argument if isinstance(argument, bytes) else argument.encode("utf-8")
-
-        return argument
+        core.pinggy_config_set_reverse_proxy(self.__configRef, reverseproxy)
 
     def __prepare_n_setargument(self):
         argument = self.__prepare_argument()
