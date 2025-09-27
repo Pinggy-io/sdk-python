@@ -63,10 +63,10 @@ pinggy_on_reconnection_completed_cb_t           = ctypes.CFUNCTYPE(pinggy_void_t
 pinggy_on_reconnection_failed_cb_t              = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_uint16_t)
 pinggy_on_usage_update_cb_t                     = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t)
 
-pinggy_channel_data_received_cb_t               = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t)
-pinggy_channel_ready_to_send_cb_t               = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_uint32_t)
-pinggy_channel_error_cb_t                       = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t, pinggy_len_t)
-pinggy_channel_cleanup_cb_t                     = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t)
+pinggy_channel_on_data_received_cb_t            = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t)
+pinggy_channel_on_ready_to_send_cb_t            = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_uint32_t)
+pinggy_channel_on_error_cb_t                    = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t, pinggy_len_t)
+pinggy_channel_on_cleanup_cb_t                  = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t)
 
 #==============================
 #   Backward Compatibility
@@ -93,6 +93,11 @@ __fix_backward_compatibility(cdll, "pinggy_tunnel_set_on_tunnel_error_callback",
 __fix_backward_compatibility(cdll, "pinggy_tunnel_set_on_new_channel_callback",                     "pinggy_tunnel_set_new_channel_callback")
 
 
+__fix_backward_compatibility(cdll, "pinggy_tunnel_channel_set_on_data_received_callback",           "pinggy_tunnel_channel_set_data_received_callback")
+__fix_backward_compatibility(cdll, "pinggy_tunnel_channel_set_on_ready_to_send_callback",           "pinggy_tunnel_channel_set_ready_to_send_callback")
+__fix_backward_compatibility(cdll, "pinggy_tunnel_channel_set_on_error_callback",                   "pinggy_tunnel_channel_set_error_callback")
+__fix_backward_compatibility(cdll, "pinggy_tunnel_channel_set_on_cleanup_callback",                 "pinggy_tunnel_channel_set_cleanup_callback")
+
 #==============================
 #   Function manipulation
 #==============================
@@ -111,6 +116,13 @@ class UnsupportedCallable:
         if self.ret is not None:
             return self.ret
         raise PinggyNotImplementedException(self.message)
+
+class FuncWrapper:
+    def __init__(self, funcName, func):
+        self.name = funcName
+        self.func = func
+    def __call__(self, *args, **kwargs):
+        return self.func(*args, **kwargs)
 
 def __get_string_via_cfunc(func):
     if func.__name__.endswith("_len"):
@@ -159,6 +171,10 @@ def __set_string_via_cfunc(func, argtypes):
         return wrapper
     return func
 
+__core_func_library = {}
+
+# def __reAdjust
+
 def __getFromCDLLIfSupported(funcName, restype, argtypes, getstring=False, ret=None):
     func = UnsupportedCallable(funcName, ret=ret)
     if hasattr(cdll, funcName):
@@ -166,10 +182,12 @@ def __getFromCDLLIfSupported(funcName, restype, argtypes, getstring=False, ret=N
     func.errcheck = pinggy_error_check
     func.argtypes = argtypes
     func.restype  = restype
+
     if getstring:
         func = __get_string_via_cfunc(func)
     else:
         func = __set_string_via_cfunc(func, argtypes)
+
     return func
 
 def _getStringArray(l, arr):
@@ -251,11 +269,6 @@ pinggy_config_set_ssl                                           = __getFromCDLLI
                                                                         pinggy_void_t,
                                                                         [pinggy_ref_t, pinggy_bool_t]
                                                                         )
-pinggy_config_set_auto_reconnect                                = __getFromCDLLIfSupported(
-                                                                        "pinggy_config_set_auto_reconnect",
-                                                                        pinggy_void_t,
-                                                                        [pinggy_ref_t, pinggy_bool_t]
-                                                                        )
 pinggy_config_set_sni_server_name                               = __getFromCDLLIfSupported(
                                                                         "pinggy_config_set_sni_server_name",
                                                                         pinggy_void_t,
@@ -266,6 +279,23 @@ pinggy_config_set_insecure                                      = __getFromCDLLI
                                                                         pinggy_void_t,
                                                                         [pinggy_ref_t, pinggy_bool_t]
                                                                         )
+pinggy_config_set_auto_reconnect                                = __getFromCDLLIfSupported(
+                                                                        "pinggy_config_set_auto_reconnect",
+                                                                        pinggy_void_t,
+                                                                        [pinggy_ref_t, pinggy_bool_t]
+                                                                        )
+
+pinggy_config_set_max_reconnect_attempts                        = __getFromCDLLIfSupported(
+                                                                        "pinggy_config_set_max_reconnect_attempts",
+                                                                        pinggy_void_t,
+                                                                        [pinggy_ref_t, pinggy_uint16_t]
+                                                                        )
+pinggy_config_set_reconnect_interval                            = __getFromCDLLIfSupported(
+                                                                        "pinggy_config_set_reconnect_interval",
+                                                                        pinggy_void_t,
+                                                                        [pinggy_ref_t, pinggy_uint16_t]
+                                                                        )
+
 pinggy_config_set_header_manipulations                          = __getFromCDLLIfSupported(
                                                                         "pinggy_config_set_header_manipulations",
                                                                         pinggy_void_t,
@@ -291,8 +321,8 @@ pinggy_config_set_reverse_proxy                                 = __getFromCDLLI
                                                                         pinggy_void_t,
                                                                         [pinggy_ref_t, pinggy_bool_t]
                                                                         )
-pinggy_config_set_x_forwarder_for                               = __getFromCDLLIfSupported(
-                                                                        "pinggy_config_set_x_forwarder_for",
+pinggy_config_set_x_forwarded_for                               = __getFromCDLLIfSupported(
+                                                                        "pinggy_config_set_x_forwarded_for",
                                                                         pinggy_void_t,
                                                                         [pinggy_ref_t, pinggy_bool_t]
                                                                         )
@@ -420,11 +450,6 @@ pinggy_config_get_ssl                                           = __getFromCDLLI
                                                                         pinggy_const_bool_t,
                                                                         [pinggy_ref_t]
                                                                         )
-pinggy_config_get_auto_reconnect                                = __getFromCDLLIfSupported(
-                                                                        "pinggy_config_get_auto_reconnect",
-                                                                        pinggy_const_bool_t,
-                                                                        [pinggy_ref_t]
-                                                                        )
 pinggy_config_get_sni_server_name                               = __getFromCDLLIfSupported(
                                                                         "pinggy_config_get_sni_server_name",
                                                                         pinggy_const_int_t,
@@ -440,6 +465,21 @@ pinggy_config_get_sni_server_name_len                           = __getFromCDLLI
 pinggy_config_get_insecure                                      = __getFromCDLLIfSupported(
                                                                         "pinggy_config_get_insecure",
                                                                         pinggy_const_bool_t,
+                                                                        [pinggy_ref_t]
+                                                                        )
+pinggy_config_get_auto_reconnect                                = __getFromCDLLIfSupported(
+                                                                        "pinggy_config_get_auto_reconnect",
+                                                                        pinggy_const_bool_t,
+                                                                        [pinggy_ref_t]
+                                                                        )
+pinggy_config_get_max_reconnect_attempts                        = __getFromCDLLIfSupported(
+                                                                        "pinggy_config_get_max_reconnect_attempts",
+                                                                        pinggy_uint16_t,
+                                                                        [pinggy_ref_t]
+                                                                        )
+pinggy_config_get_reconnect_interval                            = __getFromCDLLIfSupported(
+                                                                        "pinggy_config_get_reconnect_interval",
+                                                                        pinggy_uint16_t,
                                                                         [pinggy_ref_t]
                                                                         )
 pinggy_config_get_header_manipulations                          = __getFromCDLLIfSupported(
@@ -495,8 +535,8 @@ pinggy_config_get_reverse_proxy                                 = __getFromCDLLI
                                                                         pinggy_bool_t,
                                                                         [pinggy_ref_t]
                                                                         )
-pinggy_config_get_x_forwarder_for                               = __getFromCDLLIfSupported(
-                                                                        "pinggy_config_get_x_forwarder_for",
+pinggy_config_get_x_forwarded_for                               = __getFromCDLLIfSupported(
+                                                                        "pinggy_config_get_x_forwarded_for",
                                                                         pinggy_bool_t,
                                                                         [pinggy_ref_t]
                                                                         )
@@ -701,25 +741,25 @@ pinggy_tunnel_get_greeting_msgs_len                             = __getFromCDLLI
                                                                         [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t, pinggy_capa_p_t],
                                                                         getstring=True
                                                                         )
-pinggy_tunnel_channel_set_data_received_callback                = __getFromCDLLIfSupported(
-                                                                        "pinggy_tunnel_channel_set_data_received_callback",
+pinggy_tunnel_channel_set_on_data_received_callback             = __getFromCDLLIfSupported(
+                                                                        "pinggy_tunnel_channel_set_on_data_received_callback",
                                                                         pinggy_bool_t,
-                                                                        [pinggy_ref_t, pinggy_channel_data_received_cb_t, pinggy_void_p_t]
+                                                                        [pinggy_ref_t, pinggy_channel_on_data_received_cb_t, pinggy_void_p_t]
                                                                         )
-pinggy_tunnel_channel_set_ready_to_send_callback                = __getFromCDLLIfSupported(
-                                                                        "pinggy_tunnel_channel_set_ready_to_send_callback",
+pinggy_tunnel_channel_set_on_ready_to_send_callback             = __getFromCDLLIfSupported(
+                                                                        "pinggy_tunnel_channel_set_on_ready_to_send_callback",
                                                                         pinggy_bool_t,
-                                                                        [pinggy_ref_t, pinggy_channel_ready_to_send_cb_t, pinggy_void_p_t]
+                                                                        [pinggy_ref_t, pinggy_channel_on_ready_to_send_cb_t, pinggy_void_p_t]
                                                                         )
-pinggy_tunnel_channel_set_error_callback                        = __getFromCDLLIfSupported(
-                                                                        "pinggy_tunnel_channel_set_error_callback",
+pinggy_tunnel_channel_set_on_error_callback                     = __getFromCDLLIfSupported(
+                                                                        "pinggy_tunnel_channel_set_on_error_callback",
                                                                         pinggy_bool_t,
-                                                                        [pinggy_ref_t, pinggy_channel_error_cb_t, pinggy_void_p_t]
+                                                                        [pinggy_ref_t, pinggy_channel_on_error_cb_t, pinggy_void_p_t]
                                                                         )
-pinggy_tunnel_channel_set_cleanup_callback                      = __getFromCDLLIfSupported(
-                                                                        "pinggy_tunnel_channel_set_cleanup_callback",
+pinggy_tunnel_channel_set_on_cleanup_callback                   = __getFromCDLLIfSupported(
+                                                                        "pinggy_tunnel_channel_set_on_cleanup_callback",
                                                                         pinggy_bool_t,
-                                                                        [pinggy_ref_t, pinggy_channel_cleanup_cb_t, pinggy_void_p_t]
+                                                                        [pinggy_ref_t, pinggy_channel_on_cleanup_cb_t, pinggy_void_p_t]
                                                                         )
 pinggy_tunnel_channel_accept                                    = __getFromCDLLIfSupported(
                                                                         "pinggy_tunnel_channel_accept",

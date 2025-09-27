@@ -102,18 +102,18 @@ class Channel:
     """
     def __init__(self, channelRef):
         self.__channelRef       = channelRef
-        self.__data_received_cb = core.pinggy_channel_data_received_cb_t(self.__func_data_received)
-        self.__ready_to_send_cb = core.pinggy_channel_ready_to_send_cb_t(self.__func_ready_to_send)
-        self.__error_cb         = core.pinggy_channel_error_cb_t(self.__func_error)
-        self.__cleanup_cb       = core.pinggy_channel_cleanup_cb_t(self.__func_cleanup)
+        self.__data_received_cb = core.pinggy_channel_on_data_received_cb_t(self.__func_data_received)
+        self.__ready_to_send_cb = core.pinggy_channel_on_ready_to_send_cb_t(self.__func_ready_to_send)
+        self.__error_cb         = core.pinggy_channel_on_error_cb_t(self.__func_error)
+        self.__cleanup_cb       = core.pinggy_channel_on_cleanup_cb_t(self.__func_cleanup)
 
-        if not core.pinggy_tunnel_channel_set_data_received_callback(self.__channelRef, self.__data_received_cb, None):
+        if not core.pinggy_tunnel_channel_set_on_data_received_callback(self.__channelRef, self.__data_received_cb, None):
             print(f"Could not setup callback `pinggy_channel_data_received_cb_t` for channel {self.__channelRef}")
-        if not core.pinggy_tunnel_channel_set_ready_to_send_callback(self.__channelRef, self.__ready_to_send_cb, None):
+        if not core.pinggy_tunnel_channel_set_on_ready_to_send_callback(self.__channelRef, self.__ready_to_send_cb, None):
             print(f"Could not setup callback `pinggy_channel_ready_to_send_cb_t` for channel {self.__channelRef}")
-        if not core.pinggy_tunnel_channel_set_error_callback(self.__channelRef, self.__error_cb, None):
+        if not core.pinggy_tunnel_channel_set_on_error_callback(self.__channelRef, self.__error_cb, None):
             print(f"Could not setup callback `pinggy_channel_error_cb_t` for channel {self.__channelRef}")
-        if not core.pinggy_tunnel_channel_set_cleanup_callback(self.__channelRef, self.__cleanup_cb, None):
+        if not core.pinggy_tunnel_channel_set_on_cleanup_callback(self.__channelRef, self.__cleanup_cb, None):
             print(f"Could not setup callback `pinggy_channel_cleanup_cb_t` for channel {self.__channelRef}")
 
     def __func_data_received(self, userdata, channelRef):
@@ -778,6 +778,14 @@ class Tunnel:
     def auto_reconnect(self):
         return core.pinggy_config_get_auto_reconnect(self.__configRef)
 
+    @property
+    def max_reconnect_attempts(self):
+        return core.pinggy_config_get_max_reconnect_attempts(self.__configRef)
+
+    @property
+    def reconnect_interval(self):
+        return core.pinggy_config_get_reconnect_interval(self.__configRef)
+
     #////////////////////////////////
 
     @server_address.setter
@@ -872,6 +880,14 @@ class Tunnel:
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
         core.pinggy_config_set_auto_reconnect(self.__configRef, val)
+
+    @max_reconnect_attempts.setter
+    def max_reconnect_attempts(self, val):
+        return core.pinggy_config_set_max_reconnect_attempts(self.__configRef, val)
+
+    @reconnect_interval.setter
+    def reconnect_interval(self, val):
+        return core.pinggy_config_set_reconnect_interval(self.__configRef, val)
 
     #//////////////////////
 
@@ -994,13 +1010,13 @@ class Tunnel:
     @property
     def xff(self):
         """bool: whethere xff is set or not."""
-        return core.pinggy_config_get_x_forwarder_for(self.__configRef)
+        return core.pinggy_config_get_x_forwarded_for(self.__configRef)
 
     @xff.setter
     def xff(self, xff: bool):
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
-        core.pinggy_config_set_x_forwarder_for(self.__configRef, xff)
+        core.pinggy_config_set_x_forwarded_for(self.__configRef, xff)
 
 
     @property
