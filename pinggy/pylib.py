@@ -218,7 +218,7 @@ class BaseTunnelHandler:
         """
         logger.error(f"Forwarding failed with msg {msg}")
 
-    def additional_forwarding_succeeded(self, bindAddr, forwardTo):
+    def additional_forwarding_succeeded(self, bindAddr, forwardTo, forwardingType):
         """
         Triggers when additional forwarding completes successfully. Learn more at
         https://pinggy.io/docs/http_tunnels/multi_port_forwarding/.
@@ -231,7 +231,7 @@ class BaseTunnelHandler:
         """
         logger.debug(f"Additional forwarding from {bindAddr} to {forwardTo} succeeded")
 
-    def additional_forwarding_failed(self, bindAddr, forwardTo, err):
+    def additional_forwarding_failed(self, bindAddr, forwardTo, forwardingType, err):
         """
         Triggers when additional forwarding fails
         """
@@ -339,10 +339,11 @@ class Tunnel:
         >                             |
         >                             `-> primary forwarding succeeded callback
     """
-    def __init__(self, server_address="a.pinggy.io:443", type="", tcp_forward_to=None, udp_forward_to=None, eventClass=BaseTunnelHandler):
+    def __init__(self, server_address="a.pinggy.io:443", type="", eventClass=BaseTunnelHandler):
         server_address = server_address if isinstance(server_address, bytes) else server_address.encode("utf-8")
         self.__tunnelRef                            = 0
         self.__resumable                            = False
+
         self.__connected_cb                         = core.pinggy_on_connected_cb_t(self.__func_connected)
         self.__authenticated_cb                     = core.pinggy_on_authenticated_cb_t(self.__func_authenticated)
         self.__authentication_failed_cb             = core.pinggy_on_authentication_failed_cb_t(self.__func_authentication_failed)
@@ -377,12 +378,12 @@ class Tunnel:
         self.tunnel_statup_messages                 = []
         self.server_address                         = server_address
 
-        if tcp_forward_to is not None:
-            self.tcp_forward_to                     = tcp_forward_to
-        if udp_forward_to is not None:
-            self.udp_forward_to                     = udp_forward_to
-        if type != "":
-            self.type                               = type
+        # if tcp_forward_to is not None:
+        #     self.tcp_forward_to                     = tcp_forward_to
+        # if udp_forward_to is not None:
+        #     self.udp_forward_to                     = udp_forward_to
+        # if type != "":
+        #     self.type                               = type
 
         self.__eventHandler                         = eventClass(self)
 
@@ -637,16 +638,20 @@ class Tunnel:
         self.__continue_polling = False
         self.__eventHandler.primary_forwarding_failed(msg)
 
-    def __func_additional_forwarding_succeeded(self, userdata, ref, bindAddr, forwardTo):
+    def __func_additional_forwarding_succeeded(self, userdata, ref, bindAddr, forwardTo, forwardingType):
         bindAddr = bindAddr.decode('utf-8')
         forwardTo = forwardTo.decode('utf-8')
-        self.__eventHandler.additional_forwarding_succeeded(bindAddr, forwardTo)
+        forwardingType = forwardingType.decode('utf-8')
+        self.__eventHandler.additional_forwarding_succeeded(bindAddr, forwardTo, forwardingType)
+        # print(f"RemoteFowardingSucceeded: Reference: {ref} `{bindAddr}` `{forwardTo}`")
 
-    def __func_additional_forwarding_failed(self, userdata, ref, bindAddr, forwardTo, err):
+    def __func_additional_forwarding_failed(self, userdata, ref, bindAddr, forwardTo, forwardingType, err):
         bindAddr = bindAddr.decode('utf-8')
         forwardTo = forwardTo.decode('utf-8')
+        forwardingType = forwardingType.decode('utf-8')
         err = err.decode('utf-8')
-        self.__eventHandler.additional_forwarding_failed(bindAddr, forwardTo, err)
+        self.__eventHandler.additional_forwarding_failed(bindAddr, forwardTo, forwardingType, err)
+        # print(f"RemoteFowardingSucceeded: Reference: {ref} `{bindAddr}` `{forwardTo}` `{err}`")
 
     def __func_disconnected(self, userdata, ref, msg, l, arr):
         self.__continue_polling = False
@@ -695,46 +700,43 @@ class Tunnel:
         str: pinggy server address. The default server address is `a.pinggy.io`. You can also add the
             port as follows: `a.pinggy.io:443`.
         """
-        return core.pinggy_config_get_server_address(self.__configRef)
+        return core.pinggy_config_get_server_address_len(self.__configRef)
 
     @property
     def token(self):
         """str: Token for the tunnel. One can it from `dashboard.pinggy.io`"""
-        return core.pinggy_config_get_token(self.__configRef)
+        return core.pinggy_config_get_token_len(self.__configRef)
+
+    @property
+    def forwardings(self):
+        """
+        Retrieves the forwarding rules (as a JSON string) from the tunnel config.
+        """
+        return core.pinggy_config_get_forwardings_len(self.__configRef)
 
     @property
     def type(self):
-        """
-        str: Tunnel type or mode. This is only for TCP type. So, the accepted values are 'http',
-            'tcp', 'tls' and 'tlstcp'. Default is 'http'.
-        """
-        return core.pinggy_config_get_type(self.__configRef)
+        raise pinggyexception.PinggyRemovedPropertyError(
+            "The property 'type' has been removed. Use set_forwarding."
+        )
 
     @property
     def udp_type(self):
-        """
-        str: Tunnel type or mode. This is only for UDP type. currently, only accepted value is 'udp'.
-        """
-        return core.pinggy_config_get_udp_type(self.__configRef)
+        raise pinggyexception.PinggyRemovedPropertyError(
+            "The property 'udp_type' has been removed. Use set_forwarding."
+        )
 
     @property
     def tcp_forward_to(self):
-        """
-        str: local server address for default or primary forward. It is equivalent to -R option in ssh
-
-        Example:
-            If local server is running at port 8080. Forward request to it by setting
-
-            >>> tunnel.tcp_forward_to = "localhost:8080"
-        """
-        return core.pinggy_config_get_tcp_forward_to(self.__configRef)
+        raise pinggyexception.PinggyRemovedPropertyError(
+            "The property 'tcp_forward_to' has been removed. Use set_forwarding."
+        )
 
     @property
     def udp_forward_to(self):
-        """
-        str: Similar to `tcp_forward_to`. However, it is for udp tunnel.
-        """
-        return core.pinggy_config_get_udp_forward_to(self.__configRef)
+        raise pinggyexception.PinggyRemovedPropertyError(
+            "The property 'tcp_forward_to' has been removed. Use set_forwarding."
+        )
 
     @property
     def force(self):
@@ -793,37 +795,122 @@ class Tunnel:
         val = val if isinstance(val, bytes) else val.encode("utf-8")
         core.pinggy_config_set_token(self.__configRef, val)
 
-    @type.setter
-    def type(self, val):
-        if not self.__editableConfig:
-            raise Exception("Tunnel is already connected, no modification allowed")
-        val = val if isinstance(val, bytes) else val.encode("utf-8")
-        core.pinggy_config_set_type(self.__configRef, val)
+    @forwardings.setter
+    def set_forwardings(self, forwardings: str|list[dict]):
+        """
+        Sets multiple forwarding rules for the tunnel configuration.
 
-    @udp_type.setter
-    def udp_type(self, val):
-        if not self.__editableConfig:
-            raise Exception("Tunnel is already connected, no modification allowed")
-        val = val if isinstance(val, bytes) else val.encode("utf-8")
-        core.pinggy_config_set_udp_type(self.__configRef, val)
+        This function allows you to define multiple forwarding rules either as a single
+        simplified forwarding string (similar to `pinggy_config_add_forwarding_simple`)
+        or as a JSON array of forwarding objects.
 
-    @tcp_forward_to.setter
-    def tcp_forward_to(self, val):
-        if not self.__editableConfig:
-            raise Exception("Tunnel is already connected, no modification allowed")
-        if type(val) == int:
-            val = f"localhost:{val}"
-        val = val if isinstance(val, bytes) else val.encode("utf-8")
-        core.pinggy_config_set_tcp_forward_to(self.__configRef, val)
+        If `forwardings` is a single string, it should follow the format
+        `[forwarding_type://][localhost:]port`.
 
-    @udp_forward_to.setter
-    def udp_forward_to(self, val):
+        If `forwardings` is a list of dictionaries, each dictionary should define a
+        forwarding rule with the following properties:
+        - `type`: (Optional) The type of forwarding (e.g., "http", "tcp", "udp", "tls", "tlstcp").
+          Defaults to "http" if not specified.
+        - `listenAddress`: (Optional) The remote address to bind to. Format: `[host][:port]`.
+          An empty string or undefined means the server will assign a default binding.
+          The hostname is ignored for TCP and UDP tunnels. Any schema provided will be ignored.
+        - `address`: The local address to forward to. Format: `[protocol://][host]:port`.
+          The `protocol` is primarily used to determine if `local_server_tls` should be
+          enabled for this specific rule (e.g., `https://`). It is ignored otherwise.
+
+        Example:
+            >>> tunnel.forwardings = [{"type": "tcp", "address": "localhost:22"}] # Forwards connections to local SSH server.
+            >>> tunnel.forwardings = [
+            ...     {"address": "localhost:8000", "listenAddress": "your-registered-custom-domain.com"},
+            ...     {"address": "localhost:4000", "listenAddress": "your-registered-subdomain.pinggy.io"}
+            ... ] # Forwards requests to a custom domain to localhost:8000 and to a subdomain to localhost:4000.
+        """
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
-        if type(val) == int:
-            val = f"localhost:{val}"
-        val = val if isinstance(val, bytes) else val.encode("utf-8")
-        core.pinggy_config_set_udp_forward_to(self.__configRef, val)
+        if isinstance(forwardings, list):
+            forwardings = json.dumps(forwardings)
+        core.pinggy_config_set_forwardings(self.__configRef, forwardings)
+
+    @forwardings.deleter
+    def reset_forwardings(self):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        core.pinggy_config_reset_forwardings(self.__configRef)
+
+    def add_forwarding(self, address: str, type: str|None = None, listen_address: str|None = None):
+        """
+        Adds a new forwarding rule to the tunnel configuration.
+
+        This function allows you to specify how incoming connections to a remote `listen_address`
+        on the Pinggy server should be forwarded to a local `address` on your local machine.
+
+        Args:
+            address (str): The local address to forward to.
+                    This can be a URL (e.g., "http://localhost:3000"), an IP address
+                    (e.g., "127.0.0.1:8000"), or just a port (e.g., ":5000").
+                    If the schema (e.g., "http://") and host are omitted, "localhost"
+                    is assumed. For example, ":3000" becomes "http://localhost:3000"
+                    for HTTP forwarding.
+                    If `type` is "http" and `address` specifies an "https"
+                    schema (e.g., "https://localhost:443"), this implicitly enables
+                    `local_server_tls` for this specific forwarding rule.
+
+            type (str, optional): The type of forwarding.
+                    Valid types are "http", "tcp", "udp", "tls", "tlstcp".
+                    If an empty string or None is provided, "http" is assumed.
+
+            listen_address (str, optional): The remote address to bind to.
+                    This can be a domain name, a domain:port combination,
+                    or just a port. Examples: "example.pinggy.io",
+                    "example.pinggy.io:8080", ":80".
+                    If empty string or None, the server will assign a default binding.
+                    The hostname is ignored for TCP and UDP tunnels.
+                    Any schema provided will be ignored.
+
+        Examples:
+            >>> tunnel.add_forwarding(address="localhost:8000")
+        """
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        if (type is None or type == "") and (listen_address is None or listen_address == ""):
+            core.pinggy_config_add_forwarding_simple(self.__configRef, address)
+        else:
+            if listen_address is None:
+                listen_address = ""
+            core.pinggy_config_add_forwarding(self.__configRef, type, listen_address, address)
+
+
+    # @type.setter
+    # def type(self, val):
+    #     if not self.__editableConfig:
+    #         raise Exception("Tunnel is already connected, no modification allowed")
+    #     val = val if isinstance(val, bytes) else val.encode("utf-8")
+    #     core.pinggy_config_set_type(self.__configRef, val)
+
+    # @udp_type.setter
+    # def udp_type(self, val):
+    #     if not self.__editableConfig:
+    #         raise Exception("Tunnel is already connected, no modification allowed")
+    #     val = val if isinstance(val, bytes) else val.encode("utf-8")
+    #     core.pinggy_config_set_udp_type(self.__configRef, val)
+
+    # @tcp_forward_to.setter
+    # def tcp_forward_to(self, val):
+    #     if not self.__editableConfig:
+    #         raise Exception("Tunnel is already connected, no modification allowed")
+    #     if type(val) == int:
+    #         val = f"localhost:{val}"
+    #     val = val if isinstance(val, bytes) else val.encode("utf-8")
+    #     core.pinggy_config_set_tcp_forward_to(self.__configRef, val)
+
+    # @udp_forward_to.setter
+    # def udp_forward_to(self, val):
+    #     if not self.__editableConfig:
+    #         raise Exception("Tunnel is already connected, no modification allowed")
+    #     if type(val) == int:
+    #         val = f"localhost:{val}"
+    #     val = val if isinstance(val, bytes) else val.encode("utf-8")
+    #     core.pinggy_config_set_udp_forward_to(self.__configRef, val)
 
     @force.setter
     def force(self, val):
@@ -979,8 +1066,6 @@ class Tunnel:
         core.pinggy_config_set_header_manipulations(self.__configRef, json.dumps(processedHm))
 
     def remove_header(self, header_name):
-        self.removeHeader(header_name)
-    def removeHeader(self, header_name):
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
         headermod = self.headermodification
@@ -988,8 +1073,6 @@ class Tunnel:
         self.headermodification = headermod
 
     def add_header(self, header_name, new_value):
-        self.addHeader(header_name, new_value)
-    def addHeader(self, header_name, new_value):
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
 
@@ -998,8 +1081,6 @@ class Tunnel:
         self.headermodification = headermod
 
     def update_header(self, header_name, new_value):
-        self.updateHeader(header_name, new_value)
-    def updateHeader(self, header_name, new_value):
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
 
@@ -1112,7 +1193,6 @@ def __start_tunnel(tun, webdebuggerport):
 
 def start_tunnel(
         forwardto: int|str = 80,
-        type: str = "http",
         token: str = "",
         force: bool = False,
         ipwhitelist: list[str]|str|None = None,
@@ -1127,7 +1207,6 @@ def start_tunnel(
         allowpreflight: bool = False,
         reverseproxy: bool = True,
         serveraddress: str = "a.pinggy.io:443",
-        udpforwardto: int | str = 0,
         autoreconnect: bool = False,
         eventclass = BaseTunnelHandler
 ):
@@ -1136,8 +1215,8 @@ def start_tunnel(
 
     Args:
         forwardto: address of local server. Only port can be provided incase of local server. Example: 80, "localhost:80".
-
-        type: Type of the tunnel. values can be one of `http`, `tcp`, `tls`, `tlstcp`. `http` is the default value.
+                    The format is [schema://][localhost:]port. Schema can be one of `http`, `https`, `tcp`, `tls`, `tlstcp`, `udp`. Default is `http`.
+                    `https` means local server tls.
 
         token: User token. Get it from https://dashboard.pinggy.io
 
@@ -1171,8 +1250,6 @@ def start_tunnel(
 
         serveraddress: User can set the server address to which pinggy would connect. Default: `a.pinggy.io:443`.
 
-        udpforwardto: same as tcp forward to, however, it allows users to forward udp along with tcp. If user wants to forward only udp, use `start_udptunnel`.
-
         autoreconnect: automatically reconnects when tunnel failes. It happens silently. So, to detect reconnection, one need to override the event handler.
 
         eventclass: event handler class. Object would be created for the tunnel.
@@ -1182,8 +1259,6 @@ def start_tunnel(
         eventclass = BaseTunnelHandler
     tun = Tunnel(server_address=serveraddress, eventClass=eventclass)
 
-    tun.tcp_forward_to          = forwardto
-    tun.type                    = type
     tun.token                   = token
     tun.force                   = force
     try:
@@ -1192,8 +1267,8 @@ def start_tunnel(
     except:
         pass
 
-    if bool(udpforwardto):
-        tun.udp_forward_to = udpforwardto
+    if bool(forwardto):
+        tun.forwardings = forwardto
 
     if ipwhitelist is not None:
         tun.ipwhitelist = ipwhitelist
@@ -1255,8 +1330,7 @@ def start_udptunnel(
 
     tun = Tunnel(server_address=serveraddress)
 
-    tun.udp_forward_to          = forwardto
-    tun.type                    = "udp"
+    tun.add_forwarding("udp", forwardto)
     tun.token                   = token
     tun.force                   = force
     try:

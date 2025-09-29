@@ -50,8 +50,8 @@ pinggy_on_authenticated_cb_t                    = ctypes.CFUNCTYPE(pinggy_void_t
 pinggy_on_authentication_failed_cb_t            = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_len_t, pinggy_char_p_p_t)
 pinggy_on_primary_forwarding_succeeded_cb_t     = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_len_t, pinggy_char_p_p_t)
 pinggy_on_primary_forwarding_failed_cb_t        = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t)
-pinggy_on_additional_forwarding_succeeded_cb_t  = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t, pinggy_const_char_p_t)
-pinggy_on_additional_forwarding_failed_cb_t     = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t, pinggy_const_char_p_t, pinggy_const_char_p_t)
+pinggy_on_additional_forwarding_succeeded_cb_t  = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t, pinggy_const_char_p_t, pinggy_const_char_p_t)
+pinggy_on_additional_forwarding_failed_cb_t     = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t, pinggy_const_char_p_t, pinggy_const_char_p_t, pinggy_const_char_p_t)
 pinggy_on_disconnected_cb_t                     = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t, pinggy_len_t, pinggy_char_p_p_t)
 pinggy_on_tunnel_error_cb_t                     = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_uint32_t, pinggy_char_p_t, pinggy_bool_t)
 pinggy_on_new_channel_cb_t                      = ctypes.CFUNCTYPE(pinggy_bool_t, pinggy_void_p_t, pinggy_ref_t, pinggy_ref_t)
@@ -78,25 +78,6 @@ def __fix_backward_compatibility(_cdll, _new_attr, _old_attr):
     except:
         _old_val = getattr(_cdll, _old_attr)
         setattr(_cdll, _new_attr, _old_val)
-
-# for functions before v0.0.13
-__fix_backward_compatibility(cdll, "pinggy_set_on_exception_callback",                              "pinggy_set_exception_callback")
-__fix_backward_compatibility(cdll, "pinggy_tunnel_set_on_connected_callback",                       "pinggy_tunnel_set_connected_callback")
-__fix_backward_compatibility(cdll, "pinggy_tunnel_set_on_authenticated_callback",                   "pinggy_tunnel_set_authenticated_callback")
-__fix_backward_compatibility(cdll, "pinggy_tunnel_set_on_authentication_failed_callback",           "pinggy_tunnel_set_authentication_failed_callback")
-__fix_backward_compatibility(cdll, "pinggy_tunnel_set_on_primary_forwarding_succeeded_callback",    "pinggy_tunnel_set_primary_forwarding_succeeded_callback")
-__fix_backward_compatibility(cdll, "pinggy_tunnel_set_on_primary_forwarding_failed_callback",       "pinggy_tunnel_set_primary_forwarding_failed_callback")
-__fix_backward_compatibility(cdll, "pinggy_tunnel_set_on_additional_forwarding_succeeded_callback", "pinggy_tunnel_set_additional_forwarding_succeeded_callback")
-__fix_backward_compatibility(cdll, "pinggy_tunnel_set_on_additional_forwarding_failed_callback",    "pinggy_tunnel_set_additional_forwarding_failed_callback")
-__fix_backward_compatibility(cdll, "pinggy_tunnel_set_on_disconnected_callback",                    "pinggy_tunnel_set_disconnected_callback")
-__fix_backward_compatibility(cdll, "pinggy_tunnel_set_on_tunnel_error_callback",                    "pinggy_tunnel_set_tunnel_error_callback")
-__fix_backward_compatibility(cdll, "pinggy_tunnel_set_on_new_channel_callback",                     "pinggy_tunnel_set_new_channel_callback")
-
-
-__fix_backward_compatibility(cdll, "pinggy_tunnel_channel_set_on_data_received_callback",           "pinggy_tunnel_channel_set_data_received_callback")
-__fix_backward_compatibility(cdll, "pinggy_tunnel_channel_set_on_ready_to_send_callback",           "pinggy_tunnel_channel_set_ready_to_send_callback")
-__fix_backward_compatibility(cdll, "pinggy_tunnel_channel_set_on_error_callback",                   "pinggy_tunnel_channel_set_error_callback")
-__fix_backward_compatibility(cdll, "pinggy_tunnel_channel_set_on_cleanup_callback",                 "pinggy_tunnel_channel_set_cleanup_callback")
 
 #==============================
 #   Function manipulation
@@ -229,26 +210,46 @@ pinggy_config_set_token                                         = __getFromCDLLI
                                                                         pinggy_void_t,
                                                                         [pinggy_ref_t, pinggy_char_p_t]
                                                                         )
-pinggy_config_set_type                                          = __getFromCDLLIfSupported(
-                                                                        "pinggy_config_set_type",
+pinggy_config_add_forwarding                                    = __getFromCDLLIfSupported(
+                                                                        "pinggy_config_add_forwarding",
+                                                                        pinggy_void_t,
+                                                                        [pinggy_ref_t, pinggy_char_p_t, pinggy_char_p_t, pinggy_char_p_t]
+                                                                        )
+pinggy_config_add_forwarding_simple                             = __getFromCDLLIfSupported(
+                                                                        "pinggy_config_add_forwarding_simple",
                                                                         pinggy_void_t,
                                                                         [pinggy_ref_t, pinggy_char_p_t]
                                                                         )
-pinggy_config_set_udp_type                                      = __getFromCDLLIfSupported(
-                                                                        "pinggy_config_set_udp_type",
+pinggy_config_set_forwardings                                   = __getFromCDLLIfSupported(
+                                                                        "pinggy_config_set_forwardings",
                                                                         pinggy_void_t,
                                                                         [pinggy_ref_t, pinggy_char_p_t]
                                                                         )
-pinggy_config_set_tcp_forward_to                                = __getFromCDLLIfSupported(
-                                                                        "pinggy_config_set_tcp_forward_to",
+pinggy_config_reset_forwardings                                 = __getFromCDLLIfSupported(
+                                                                        "pinggy_config_reset_forwardings",
                                                                         pinggy_void_t,
-                                                                        [pinggy_ref_t, pinggy_char_p_t]
+                                                                        [pinggy_ref_t]
                                                                         )
-pinggy_config_set_udp_forward_to                                = __getFromCDLLIfSupported(
-                                                                        "pinggy_config_set_udp_forward_to",
-                                                                        pinggy_void_t,
-                                                                        [pinggy_ref_t, pinggy_char_p_t]
-                                                                        )
+# pinggy_config_set_type                                          = __getFromCDLLIfSupported(
+#                                                                         "pinggy_config_set_type",
+#                                                                         pinggy_void_t,
+#                                                                         [pinggy_ref_t, pinggy_char_p_t]
+#                                                                         )
+# pinggy_config_set_udp_type                                      = __getFromCDLLIfSupported(
+#                                                                         "pinggy_config_set_udp_type",
+#                                                                         pinggy_void_t,
+#                                                                         [pinggy_ref_t, pinggy_char_p_t]
+#                                                                         )
+# pinggy_config_set_tcp_forward_to                                = __getFromCDLLIfSupported(
+#                                                                         "pinggy_config_set_tcp_forward_to",
+#                                                                         pinggy_void_t,
+#                                                                         [pinggy_ref_t, pinggy_char_p_t]
+#                                                                         )
+# pinggy_config_set_udp_forward_to                                = __getFromCDLLIfSupported(
+#                                                                         "pinggy_config_set_udp_forward_to",
+#                                                                         pinggy_void_t,
+#                                                                         [pinggy_ref_t, pinggy_char_p_t]
+#                                                                         )
 pinggy_config_set_force                                         = __getFromCDLLIfSupported(
                                                                         "pinggy_config_set_force",
                                                                         pinggy_void_t,
@@ -375,58 +376,70 @@ pinggy_config_get_token_len                                     = __getFromCDLLI
                                                                         [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t, pinggy_capa_p_t],
                                                                         getstring=True
                                                                         )
-pinggy_config_get_type                                          = __getFromCDLLIfSupported(
-                                                                        "pinggy_config_get_type",
-                                                                        pinggy_const_int_t,
-                                                                        [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t],
-                                                                        getstring=True
-                                                                        )
-pinggy_config_get_type_len                                      = __getFromCDLLIfSupported(
-                                                                        "pinggy_config_get_type_len",
-                                                                        pinggy_const_int_t,
-                                                                        [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t, pinggy_capa_p_t],
-                                                                        getstring=True
-                                                                        )
-pinggy_config_get_udp_type                                      = __getFromCDLLIfSupported(
-                                                                        "pinggy_config_get_udp_type",
-                                                                        pinggy_const_int_t,
-                                                                        [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t],
-                                                                        getstring=True
-                                                                        )
-pinggy_config_get_udp_type_len                                  = __getFromCDLLIfSupported(
-                                                                        "pinggy_config_get_udp_type_len",
-                                                                        pinggy_const_int_t,
-                                                                        [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t, pinggy_capa_p_t],
-                                                                        getstring=True
-                                                                        )
-pinggy_config_get_tcp_forward_to                                = __getFromCDLLIfSupported(
-                                                                        "pinggy_config_get_tcp_forward_to",
-                                                                        pinggy_const_int_t,
-                                                                        [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t],
-                                                                        getstring=True
-                                                                        )
-pinggy_config_get_tcp_forward_to_len                            = __getFromCDLLIfSupported(
-                                                                        "pinggy_config_get_tcp_forward_to_len",
-                                                                        pinggy_const_int_t,
-                                                                        [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t, pinggy_capa_p_t],
-                                                                        getstring=True
-                                                                        )
-pinggy_config_get_udp_forward_to                                = __getFromCDLLIfSupported(
-                                                                        "pinggy_config_get_udp_forward_to",
-                                                                        pinggy_const_int_t,
-                                                                        [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t],
-                                                                        getstring=True
-                                                                        )
-pinggy_config_get_udp_forward_to_len                            = __getFromCDLLIfSupported(
-                                                                        "pinggy_config_get_udp_forward_to_len",
-                                                                        pinggy_const_int_t,
-                                                                        [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t, pinggy_capa_p_t],
-                                                                        getstring=True
-                                                                        )
+# pinggy_config_get_type                                          = __getFromCDLLIfSupported(
+#                                                                         "pinggy_config_get_type",
+#                                                                         pinggy_const_int_t,
+#                                                                         [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t],
+#                                                                         getstring=True
+#                                                                         )
+# pinggy_config_get_type_len                                      = __getFromCDLLIfSupported(
+#                                                                         "pinggy_config_get_type_len",
+#                                                                         pinggy_const_int_t,
+#                                                                         [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t, pinggy_capa_p_t],
+#                                                                         getstring=True
+#                                                                         )
+# pinggy_config_get_udp_type                                      = __getFromCDLLIfSupported(
+#                                                                         "pinggy_config_get_udp_type",
+#                                                                         pinggy_const_int_t,
+#                                                                         [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t],
+#                                                                         getstring=True
+#                                                                         )
+# pinggy_config_get_udp_type_len                                  = __getFromCDLLIfSupported(
+#                                                                         "pinggy_config_get_udp_type_len",
+#                                                                         pinggy_const_int_t,
+#                                                                         [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t, pinggy_capa_p_t],
+#                                                                         getstring=True
+#                                                                         )
+# pinggy_config_get_tcp_forward_to                                = __getFromCDLLIfSupported(
+#                                                                         "pinggy_config_get_tcp_forward_to",
+#                                                                         pinggy_const_int_t,
+#                                                                         [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t],
+#                                                                         getstring=True
+#                                                                         )
+# pinggy_config_get_tcp_forward_to_len                            = __getFromCDLLIfSupported(
+#                                                                         "pinggy_config_get_tcp_forward_to_len",
+#                                                                         pinggy_const_int_t,
+#                                                                         [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t, pinggy_capa_p_t],
+#                                                                         getstring=True
+#                                                                         )
+# pinggy_config_get_udp_forward_to                                = __getFromCDLLIfSupported(
+#                                                                         "pinggy_config_get_udp_forward_to",
+#                                                                         pinggy_const_int_t,
+#                                                                         [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t],
+#                                                                         getstring=True
+#                                                                         )
+# pinggy_config_get_udp_forward_to_len                            = __getFromCDLLIfSupported(
+#                                                                         "pinggy_config_get_udp_forward_to_len",
+#                                                                         pinggy_const_int_t,
+#                                                                         [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t, pinggy_capa_p_t],
+#                                                                         getstring=True
+#                                                                         )
 pinggy_config_get_force                                         = __getFromCDLLIfSupported(
                                                                         "pinggy_config_get_force",
                                                                         pinggy_const_bool_t,
                                                                         [pinggy_ref_t]
+                                                                        )
+pinggy_config_get_forwardings                                   = __getFromCDLLIfSupported(
+                                                                        "pinggy_config_get_forwardings",
+                                                                        pinggy_const_int_t,
+                                                                        [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t],
+                                                                        getstring=True
+                                                                        )
+pinggy_config_get_forwardings_len                               = __getFromCDLLIfSupported(
+                                                                        "pinggy_config_get_forwardings_len",
+                                                                        pinggy_const_int_t,
+                                                                        [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t],
+                                                                        getstring=True
                                                                         )
 pinggy_config_get_argument                                      = __getFromCDLLIfSupported(
                                                                         "pinggy_config_get_argument",

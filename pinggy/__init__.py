@@ -41,7 +41,7 @@ from .pylib import Tunnel, Channel, BaseTunnelHandler, \
         version, git_commit, build_timestamp, libc_version, \
         build_os, start_tunnel, start_udptunnel, enable_log
 
-from .pinggyexception import  PinggyNativeLoaderError
+from .pinggyexception import  PinggyNativeLoaderError, PinggyRemovedPropertyError
 
 # Specify the public API of the module
 __all__ = [
@@ -60,5 +60,6 @@ __all__ = [
     "build_timestamp",
     "libc_version",
     "build_os",
-    "PinggyNativeLoaderError"
+    "PinggyNativeLoaderError",
+    "PinggyRemovedPropertyError"
 ]
