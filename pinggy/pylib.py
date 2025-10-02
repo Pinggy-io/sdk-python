@@ -46,6 +46,7 @@ class TunnelState(Enum):
     ForwardingInitiated = 11
     ForwardingSucceeded = 12
     Stopped             = 13
+    Ended               = 14
 
 def set_log_path(path):
     """
