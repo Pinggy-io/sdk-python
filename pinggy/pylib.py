@@ -4,6 +4,7 @@ import threading
 import shlex
 import threading
 import json
+from enum import Enum
 import logging
 
 logger = logging.getLogger(__name__)
@@ -27,6 +28,24 @@ except pinggyexception.PinggyNativeLoaderError as e:
     core = DummyCore(e)
 
 core.disable_sdk_log()
+
+
+
+class TunnelState(Enum):
+    Invalid             =  0
+    Initial             =  1
+    Started             =  2
+    ReconnectInitiated  =  3
+    Reconnecting        =  4
+    Connecting          =  5
+    Connected           =  6
+    SessionInitiating   =  7
+    SessionInitiated    =  8
+    Authenticating      =  9
+    Authenticated       = 10
+    ForwardingInitiated = 11
+    ForwardingSucceeded = 12
+    Stopped             = 13
 
 def set_log_path(path):
     """
@@ -200,7 +219,7 @@ class BaseTunnelHandler:
         """
         logger.error(f"Tunnel is failed to authenticate. reasons: {errors}")
 
-    def primary_forwarding_succeeded(self):
+    def forwarding_succeeded(self):
         """
         Triggers when primary (or default) forwarding successfully completed.
         Know more about primary (or default) forwarding at
@@ -209,7 +228,7 @@ class BaseTunnelHandler:
         Once this step done, one can fetch the urls from the tunnel.
         """
 
-    def primary_forwarding_failed(self, msg):
+    def forwarding_failed(self, msg):
         """
         Triggers when primary (or default) forwarding fails. The reason is present in the msg.
 
@@ -237,6 +256,8 @@ class BaseTunnelHandler:
         """
         logger.error(f"Additional forwarding from {bindAddr} to {forwardTo} failed with error {err}")
 
+    def forwardings_changed(self, forwarding):
+        pass
     def disconnected(self, msg):
         """
         Triggers when tunnel got disconnected by the server.
@@ -347,10 +368,11 @@ class Tunnel:
         self.__connected_cb                         = core.pinggy_on_connected_cb_t(self.__func_connected)
         self.__authenticated_cb                     = core.pinggy_on_authenticated_cb_t(self.__func_authenticated)
         self.__authentication_failed_cb             = core.pinggy_on_authentication_failed_cb_t(self.__func_authentication_failed)
-        self.__primary_forwarding_succeeded_cb      = core.pinggy_on_primary_forwarding_succeeded_cb_t(self.__func_primary_forwarding_succeeded)
-        self.__primary_forwarding_failed_cb         = core.pinggy_on_primary_forwarding_failed_cb_t(self.__func_primary_forwarding_failed)
+        self.__primary_forwarding_succeeded_cb      = core.pinggy_on_forwarding_succeeded_cb_t(self.__func_primary_forwarding_succeeded)
+        self.__primary_forwarding_failed_cb         = core.pinggy_on_forwarding_failed_cb_t(self.__func_primary_forwarding_failed)
         self.__additional_forwarding_succeeded_cb   = core.pinggy_on_additional_forwarding_succeeded_cb_t(self.__func_additional_forwarding_succeeded)
         self.__additional_forwarding_failed_cb      = core.pinggy_on_additional_forwarding_failed_cb_t(self.__func_additional_forwarding_failed)
+        self.__forwarding_changed_cb                = core.pinggy_on_forwardings_changed_cb_t(self.__func_forwardings_changed)
         self.__disconnected_cb                      = core.pinggy_on_disconnected_cb_t(self.__func_disconnected)
         self.__tunnel_error_cb                      = core.pinggy_on_tunnel_error_cb_t(self.__func_tunnel_error)
         self.__new_channel_cb                       = core.pinggy_on_new_channel_cb_t(self.__func_new_channel)
@@ -363,12 +385,12 @@ class Tunnel:
         self.__configRef                            = core.pinggy_create_config()
         self.__tunnelRef                            = core.pinggy_tunnel_initiate(self.__configRef)
 
-        self.__connected                            = False
-        self.__authenticated                        = False
-        self.__tunnel_started                       = False
+        # self.__connected                            = False
+        # self.__authenticated                        = False
+        # self.__tunnel_started                       = False
 
-        self.__continue_polling                     = True
-        self.__auto                                 = False
+        # self.__continue_polling                     = True
+        # self.__auto                                 = False
 
         self.__lock                                 = threading.Lock()
         self.__editableConfig                       = True
@@ -398,14 +420,16 @@ class Tunnel:
             logger.error(f"Could not setup callback for `pinggy_set_authenticated_callback`")
         if not core.pinggy_tunnel_set_on_authentication_failed_callback(self.__tunnelRef, self.__authentication_failed_cb, None):
             logger.error(f"Could not setup callback for `pinggy_set_authenticationFailed_callback`")
-        if not core.pinggy_tunnel_set_on_primary_forwarding_succeeded_callback(self.__tunnelRef, self.__primary_forwarding_succeeded_cb, None):
-            logger.error(f"Could not setup callback for `pinggy_tunnel_set_primary_forwarding_succeeded_callback`")
-        if not core.pinggy_tunnel_set_on_primary_forwarding_failed_callback(self.__tunnelRef, self.__primary_forwarding_failed_cb, None):
-            logger.error(f"Could not setup callback for `pinggy_tunnel_set_primary_forwarding_failed_callback`")
+        if not core.pinggy_tunnel_set_on_forwarding_succeeded_callback(self.__tunnelRef, self.__primary_forwarding_succeeded_cb, None):
+            logger.error(f"Could not setup callback for `pinggy_tunnel_set_on_forwarding_succeeded_callback`")
+        if not core.pinggy_tunnel_set_on_forwarding_failed_callback(self.__tunnelRef, self.__primary_forwarding_failed_cb, None):
+            logger.error(f"Could not setup callback for `pinggy_tunnel_set_on_forwarding_failed_callback`")
         if not core.pinggy_tunnel_set_on_additional_forwarding_succeeded_callback(self.__tunnelRef, self.__additional_forwarding_succeeded_cb, None):
             logger.error(f"Could not setup callback for `pinggy_tunnel_set_additional_forwarding_succeeded_callback`")
         if not core.pinggy_tunnel_set_on_additional_forwarding_failed_callback(self.__tunnelRef, self.__additional_forwarding_failed_cb, None):
             logger.error(f"Could not setup callback for `pinggy_tunnel_set_additional_forwarding_failed_callback`")
+        if not core.pinggy_tunnel_set_on_forwardings_changed_callback(self.__tunnelRef, self.__forwarding_changed_cb, None):
+            logger.error(f"Could not setup callback for `pinggy_tunnel_set_on_forwardings_changed_callback`")
         if not core.pinggy_tunnel_set_on_disconnected_callback(self.__tunnelRef, self.__disconnected_cb, None):
             logger.error(f"Could not setup callback for `pinggy_set_disconnected_callback`")
         if not core.pinggy_tunnel_set_on_will_reconnect_callback(self.__tunnelRef, self.__will_reconnect_cb, None):
@@ -449,51 +473,57 @@ class Tunnel:
             thread (bool): Whether to run the start tunnel in a new thread. Default is False
         """
         self.__editableConfig = False
-        self.__auto = True
-        if not self.__connected:
-            self.__connect_tunnel()
-        if self.__authenticated and not self.__tunnel_started:
-            self.__internal_request_primary_forwarding()
-        if self.__tunnel_started:
-            if thread:
-                t = threading.Thread(target=self.__start_serving)
-                self.__thread = t
-                t.start()
-            else:
-                self.__start_serving()
+        if thread:
+            t = threading.Thread(target=self.__start_resume)
+            self.__thread = t
+            t.start()
+        else:
+            self.__start_resume()
 
-    def connect(self):
-        """
-        Connect the tunnel with the server and authenticate it self. It returns true on success.
-
-        If this step fails, no futher step steps can be continued.
-
-        Returns:
-            bool: whether authentication done sucessfully or not.
-        """
-
-        if self.__auto:
-            raise Exception("Not permitted as tunnel started with `start` method")
-
-        return self.__connect_tunnel()
-
-    def __connect_tunnel(self):
-        if self.__connected:
-            raise Exception("You call connect only once")
-        locked = False
+    def __start_resume(self):
         if not self.__lock.acquire(False):
             raise Exception("Synchronization error")
-        locked = True
+        ret = core.pinggy_tunnel_start_non_blocking(self.__tunnelRef)
 
-        self.__editableConfig = False
-        self.__connected = True
-        self.__resumable = core.pinggy_tunnel_connect(self.__tunnelRef)
+        while ret:
+            ret = core.pinggy_tunnel_resume(self.__tunnelRef)
 
-        if self.__resumable:
-            self.__resume()
-        if locked:
-            self.__lock.release()
-        return self.__authenticated
+        self.__lock.release
+        return ret
+
+
+    # def connect(self):
+    #     """
+    #     Connect the tunnel with the server and authenticate it self. It returns true on success.
+
+    #     If this step fails, no futher step steps can be continued.
+
+    #     Returns:
+    #         bool: whether authentication done sucessfully or not.
+    #     """
+
+    #     if self.__auto:
+    #         raise Exception("Not permitted as tunnel started with `start` method")
+
+    #     return self.__connect_tunnel()
+
+    # def __connect_tunnel(self):
+    #     if self.__connected:
+    #         raise Exception("You call connect only once")
+    #     locked = False
+    #     if not self.__lock.acquire(False):
+    #         raise Exception("Synchronization error")
+    #     locked = True
+
+    #     self.__editableConfig = False
+    #     self.__connected = True
+    #     self.__resumable = core.pinggy_tunnel_connect(self.__tunnelRef)
+
+    #     if self.__resumable:
+    #         self.__resume()
+    #     if locked:
+    #         self.__lock.release()
+    #     return self.__authenticated
 
     def stop(self):
         """Stops the running tunnel."""
@@ -520,30 +550,30 @@ class Tunnel:
         """
         return core.pinggy_tunnel_start_web_debugging(self.__tunnelRef, port)
 
-    def request_primary_forwarding(self):
-        """
-        Request to start the default forwarding. Once suceeded, user can get
-        the urls and tunnel starts accepting requests.
-        """
+    # def request_primary_forwarding(self):
+    #     """
+    #     Request to start the default forwarding. Once suceeded, user can get
+    #     the urls and tunnel starts accepting requests.
+    #     """
 
-        if self.__auto:
-            raise Exception("Not permitted as tunnel started with `start` method")
+    #     if self.__auto:
+    #         raise Exception("Not permitted as tunnel started with `start` method")
 
-        return self.__internal_request_primary_forwarding()
+    #     return self.__internal_request_primary_forwarding()
 
-    def __internal_request_primary_forwarding(self):
-        if not self.__authenticated:
-            raise Exception("Connect the tunnel first")
-        locked = False
-        if not self.__lock.acquire(False):
-            raise Exception("Synchronization error")
-        locked = True
-        self.__continue_polling = True
-        core.pinggy_tunnel_request_primary_forwarding(self.__tunnelRef)
-        self.__resume()
-        if locked:
-            self.__lock.release()
-        return self.__tunnel_started
+    # def __internal_request_primary_forwarding(self):
+    #     if not self.__authenticated:
+    #         raise Exception("Connect the tunnel first")
+    #     locked = False
+    #     if not self.__lock.acquire(False):
+    #         raise Exception("Synchronization error")
+    #     locked = True
+    #     self.__continue_polling = True
+    #     core.pinggy_tunnel_request_primary_forwarding(self.__tunnelRef)
+    #     self.__resume()
+    #     if locked:
+    #         self.__lock.release()
+    #     return self.__tunnel_started
 
     def request_additional_forwarding(self, bindAddr, forwardTo):
         """
@@ -584,34 +614,39 @@ class Tunnel:
             return None
         return json.loads(msgs)
 
-    def serve_tunnel(self):
-        """
-        Final method in the tunnel creation flow. It is again a blocking call.
-        **Deprecated**
-        """
-        self.__start_serving()
+    @property
+    def state(self) -> TunnelState:
+        c_state = core.pinggy_tunnel_get_state(self.__tunnelRef)
+        return TunnelState(c_state)
 
-    def __start_serving(self):
-        if not self.__tunnel_started:
-            raise Exception("Tunnel is not running")
-        locked = False
-        if not self.__lock.acquire(False):
-            raise Exception("Synchronization error")
-        locked = True
-        self.__continue_polling = True
-        self.__resume()
-        if locked:
-            self.__lock.release()
+    # def serve_tunnel(self):
+    #     """
+    #     Final method in the tunnel creation flow. It is again a blocking call.
+    #     **Deprecated**
+    #     """
+    #     self.__start_serving()
 
-    def __resume(self):
-        if not self.__resumable:
-            raise Exception("Tunnel is not resumable")
-        while self.__continue_polling:
-            ret = core.pinggy_tunnel_resume(self.__tunnelRef)
-            if ret:
-                continue
-            self.__resumable = False
-            return
+    # def __start_serving(self):
+    #     if not self.__tunnel_started:
+    #         raise Exception("Tunnel is not running")
+    #     locked = False
+    #     if not self.__lock.acquire(False):
+    #         raise Exception("Synchronization error")
+    #     locked = True
+    #     self.__continue_polling = True
+    #     self.__resume()
+    #     if locked:
+    #         self.__lock.release()
+
+    # def __resume(self):
+    #     if not self.__resumable:
+    #         raise Exception("Tunnel is not resumable")
+    #     while self.__continue_polling:
+    #         ret = core.pinggy_tunnel_resume(self.__tunnelRef)
+    #         if ret:
+    #             continue
+    #         self.__resumable = False
+    #         return
 
     def __func_connected(self, userdata, ref):
         self.__eventHandler.connected()
@@ -631,12 +666,12 @@ class Tunnel:
         self.__continue_polling = False
         self.__tunnel_started = True
         self.__urls = core._getStringArray(l, arr)
-        self.__eventHandler.primary_forwarding_succeeded()
+        self.__eventHandler.forwarding_succeeded()
 
     def __func_primary_forwarding_failed(self, userdata, ref, msg):
         self.tunnel_statup_messages = [msg.decode('utf-8')]
         self.__continue_polling = False
-        self.__eventHandler.primary_forwarding_failed(msg)
+        self.__eventHandler.forwarding_failed(msg)
 
     def __func_additional_forwarding_succeeded(self, userdata, ref, bindAddr, forwardTo, forwardingType):
         bindAddr = bindAddr.decode('utf-8')
@@ -652,6 +687,10 @@ class Tunnel:
         err = err.decode('utf-8')
         self.__eventHandler.additional_forwarding_failed(bindAddr, forwardTo, forwardingType, err)
         # print(f"RemoteFowardingSucceeded: Reference: {ref} `{bindAddr}` `{forwardTo}` `{err}`")
+
+    def __func_forwardings_changed(self, userdate, ref, forwardings):
+        forwardings = forwardings.decode('utf-8')
+        self.__eventHandler.forwardings_changed(forwardings)
 
     def __func_disconnected(self, userdata, ref, msg, l, arr):
         self.__continue_polling = False
@@ -796,7 +835,7 @@ class Tunnel:
         core.pinggy_config_set_token(self.__configRef, val)
 
     @forwardings.setter
-    def set_forwardings(self, forwardings: str|list[dict]):
+    def forwardings(self, forwardings: str|list[dict]):
         """
         Sets multiple forwarding rules for the tunnel configuration.
 
@@ -832,7 +871,7 @@ class Tunnel:
         core.pinggy_config_set_forwardings(self.__configRef, forwardings)
 
     @forwardings.deleter
-    def reset_forwardings(self):
+    def forwardings(self):
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
         core.pinggy_config_reset_forwardings(self.__configRef)
@@ -1164,9 +1203,9 @@ class Tunnel:
             raise Exception("Tunnel is already connected, no modification allowed")
         core.pinggy_config_set_reverse_proxy(self.__configRef, reverseproxy)
 
-    def __prepare_n_setargument(self):
-        argument = self.__prepare_argument()
-        core.pinggy_config_set_argument(self.__configRef, argument)
+    # def __prepare_n_setargument(self):
+    #     argument = self.__prepare_argument()
+    #     core.pinggy_config_set_argument(self.__configRef, argument)
 
 
 def __start_tunnel(tun, webdebuggerport):

@@ -176,15 +176,15 @@ def main():
             elif option.lower() == "noreverseproxy":
                 tun.reverseproxy = False
 
-    if not tun.connect():
-        print("Failed to connect to the server.")
-        return
-    if not tun.request_primary_forwarding():
-        print("Failed to request primary forwarding.")
-        return
-    if web_debug_port > 0:
-        tun.start_web_debugging(web_debug_port)
-    print("Tunnel URLs:", tun.urls)
+    # if not tun.connect():
+    #     print("Failed to connect to the server.")
+    #     return
+    # if not tun.request_primary_forwarding():
+    #     print("Failed to request primary forwarding.")
+    #     return
+    # if web_debug_port > 0:
+    #     tun.start_web_debugging(web_debug_port)
+    # print("Tunnel URLs:", tun.urls)
     tun.start()
 
 if __name__ == "__main__":
