@@ -46,11 +46,11 @@ pinggy_uint16_t                                 = ctypes.c_uint16
 pinggy_raw_len_t                                = ctypes.c_int32
 pinggy_tunnel_state_t                           = ctypes.c_int
 
-pinggy_on_connected_cb_t                        = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t)
-pinggy_on_authenticated_cb_t                    = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t)
-pinggy_on_authentication_failed_cb_t            = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_len_t, pinggy_char_p_p_t)
-pinggy_on_forwarding_succeeded_cb_t             = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_len_t, pinggy_char_p_p_t)
-pinggy_on_forwarding_failed_cb_t                = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t)
+# pinggy_on_connected_cb_t                        = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t)
+# pinggy_on_authenticated_cb_t                    = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t)
+# pinggy_on_authentication_failed_cb_t            = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_len_t, pinggy_char_p_p_t)
+pinggy_on_tunnel_established_cb_t               = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_len_t, pinggy_char_p_p_t)
+pinggy_on_tunnel_failed_cb_t                    = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t)
 pinggy_on_additional_forwarding_succeeded_cb_t  = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t, pinggy_const_char_p_t, pinggy_const_char_p_t)
 pinggy_on_additional_forwarding_failed_cb_t     = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t, pinggy_const_char_p_t, pinggy_const_char_p_t, pinggy_const_char_p_t)
 pinggy_on_forwardings_changed_cb_t              = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t)
@@ -354,6 +354,16 @@ pinggy_config_set_local_server_tls                              = __getFromCDLLI
                                                                         pinggy_void_t,
                                                                         [pinggy_ref_t, pinggy_const_char_p_t]
                                                                         )
+pinggy_config_set_webdebugger_port                              = __getFromCDLLIfSupported(
+                                                                        "pinggy_config_set_webdebugger_port",
+                                                                        pinggy_void_t,
+                                                                        [pinggy_ref_t, pinggy_uint16_t]
+                                                                        )
+pinggy_config_set_webdebugger                                   = __getFromCDLLIfSupported(
+                                                                        "pinggy_config_set_webdebugger",
+                                                                        pinggy_void_t,
+                                                                        [pinggy_ref_t, pinggy_bool_t]
+                                                                        )
 pinggy_config_get_server_address                                = __getFromCDLLIfSupported(
                                                                         "pinggy_config_get_server_address",
                                                                         pinggy_const_int_t,
@@ -587,34 +597,44 @@ pinggy_config_get_local_server_tls_len                          = __getFromCDLLI
                                                                         [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t, pinggy_capa_p_t],
                                                                         getstring=True
                                                                         )
-pinggy_tunnel_set_on_connected_callback                         = __getFromCDLLIfSupported(
-                                                                        "pinggy_tunnel_set_on_connected_callback",
+pinggy_config_get_webdebugger_port                              = __getFromCDLLIfSupported(
+                                                                        "pinggy_config_get_webdebugger_port",
+                                                                        pinggy_uint16_t,
+                                                                        [pinggy_ref_t]
+                                                                        )
+pinggy_config_get_webdebugger                                   = __getFromCDLLIfSupported(
+                                                                        "pinggy_config_get_webdebugger",
                                                                         pinggy_bool_t,
-                                                                        [pinggy_ref_t, pinggy_on_connected_cb_t, pinggy_void_p_t],
+                                                                        [pinggy_ref_t]
+                                                                        )
+# pinggy_tunnel_set_on_connected_callback                         = __getFromCDLLIfSupported(
+#                                                                         "pinggy_tunnel_set_on_connected_callback",
+#                                                                         pinggy_bool_t,
+#                                                                         [pinggy_ref_t, pinggy_on_connected_cb_t, pinggy_void_p_t],
+#                                                                         ret=False
+#                                                                         )
+# pinggy_tunnel_set_on_authenticated_callback                     = __getFromCDLLIfSupported(
+#                                                                         "pinggy_tunnel_set_on_authenticated_callback",
+#                                                                         pinggy_bool_t,
+#                                                                         [pinggy_ref_t, pinggy_on_authenticated_cb_t, pinggy_void_p_t],
+#                                                                         ret=False
+#                                                                         )
+# pinggy_tunnel_set_on_authentication_failed_callback             = __getFromCDLLIfSupported(
+#                                                                         "pinggy_tunnel_set_on_authentication_failed_callback",
+#                                                                         pinggy_bool_t,
+#                                                                         [pinggy_ref_t, pinggy_on_authentication_failed_cb_t, pinggy_void_p_t],
+#                                                                         ret=False
+#                                                                         )
+pinggy_tunnel_set_on_tunnel_established_callback                = __getFromCDLLIfSupported(
+                                                                        "pinggy_tunnel_set_on_tunnel_established_callback",
+                                                                        pinggy_bool_t,
+                                                                        [pinggy_ref_t, pinggy_on_tunnel_established_cb_t, pinggy_void_p_t],
                                                                         ret=False
                                                                         )
-pinggy_tunnel_set_on_authenticated_callback                     = __getFromCDLLIfSupported(
-                                                                        "pinggy_tunnel_set_on_authenticated_callback",
+pinggy_tunnel_set_on_tunnel_failed_callback                     = __getFromCDLLIfSupported(
+                                                                        "pinggy_tunnel_set_on_tunnel_failed_callback",
                                                                         pinggy_bool_t,
-                                                                        [pinggy_ref_t, pinggy_on_authenticated_cb_t, pinggy_void_p_t],
-                                                                        ret=False
-                                                                        )
-pinggy_tunnel_set_on_authentication_failed_callback             = __getFromCDLLIfSupported(
-                                                                        "pinggy_tunnel_set_on_authentication_failed_callback",
-                                                                        pinggy_bool_t,
-                                                                        [pinggy_ref_t, pinggy_on_authentication_failed_cb_t, pinggy_void_p_t],
-                                                                        ret=False
-                                                                        )
-pinggy_tunnel_set_on_forwarding_succeeded_callback              = __getFromCDLLIfSupported(
-                                                                        "pinggy_tunnel_set_on_forwarding_succeeded_callback",
-                                                                        pinggy_bool_t,
-                                                                        [pinggy_ref_t, pinggy_on_forwarding_succeeded_cb_t, pinggy_void_p_t],
-                                                                        ret=False
-                                                                        )
-pinggy_tunnel_set_on_forwarding_failed_callback                 = __getFromCDLLIfSupported(
-                                                                        "pinggy_tunnel_set_on_forwarding_failed_callback",
-                                                                        pinggy_bool_t,
-                                                                        [pinggy_ref_t, pinggy_on_forwarding_failed_cb_t, pinggy_void_p_t],
+                                                                        [pinggy_ref_t, pinggy_on_tunnel_failed_cb_t, pinggy_void_p_t],
                                                                         ret=False
                                                                         )
 pinggy_tunnel_set_on_additional_forwarding_succeeded_callback   = __getFromCDLLIfSupported(

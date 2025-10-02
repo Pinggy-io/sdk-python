@@ -200,27 +200,28 @@ class BaseTunnelHandler:
         """
         return self.tunnel
 
-    def connected(self):
-        """
-        Triggers when tunnel successfully connected. it is probably is not required at all.
-        """
+    # def connected(self):
+    #     """
+    #     Triggers when tunnel successfully connected. it is probably is not required at all.
+    #     """
 
-    def authenticated(self):
-        """
-        Triggers when tunnel successfully authenticated. Authentication happen even for free tunnels.
-        """
+    # def authenticated(self):
+    #     """
+    #     Triggers when tunnel successfully authenticated. Authentication happen even for free tunnels.
+    #     """
+    #     # print(f"Tunnel authenticated")
 
-    def authentication_failed(self, errors):
-        """
-        Triggers when tunnel could not able to authenticate it self. Reasons are provided in the `errors` argument.
-        Any further action on the tunnel object will fail.
+    # def authentication_failed(self, errors):
+    #     """
+    #     Triggers when tunnel could not able to authenticate it self. Reasons are provided in the `errors` argument.
+    #     Any further action on the tunnel object will fail.
 
-        Args:
-            errors (list(str)): Authentication failure reasons.
-        """
-        logger.error(f"Tunnel is failed to authenticate. reasons: {errors}")
+    #     Args:
+    #         errors (list(str)): Authentication failure reasons.
+    #     """
+    #     print(f"Tunnel is failed to authenticate. reasons: {errors}")
 
-    def forwarding_succeeded(self):
+    def tunnel_established(self, url : list[str]):
         """
         Triggers when primary (or default) forwarding successfully completed.
         Know more about primary (or default) forwarding at
@@ -229,7 +230,7 @@ class BaseTunnelHandler:
         Once this step done, one can fetch the urls from the tunnel.
         """
 
-    def forwarding_failed(self, msg):
+    def tunnel_failed(self, msg):
         """
         Triggers when primary (or default) forwarding fails. The reason is present in the msg.
 
@@ -366,11 +367,11 @@ class Tunnel:
         self.__tunnelRef                            = 0
         self.__resumable                            = False
 
-        self.__connected_cb                         = core.pinggy_on_connected_cb_t(self.__func_connected)
-        self.__authenticated_cb                     = core.pinggy_on_authenticated_cb_t(self.__func_authenticated)
-        self.__authentication_failed_cb             = core.pinggy_on_authentication_failed_cb_t(self.__func_authentication_failed)
-        self.__primary_forwarding_succeeded_cb      = core.pinggy_on_forwarding_succeeded_cb_t(self.__func_primary_forwarding_succeeded)
-        self.__primary_forwarding_failed_cb         = core.pinggy_on_forwarding_failed_cb_t(self.__func_primary_forwarding_failed)
+        # self.__connected_cb                         = core.pinggy_on_connected_cb_t(self.__func_connected)
+        # self.__authenticated_cb                     = core.pinggy_on_authenticated_cb_t(self.__func_authenticated)
+        # self.__authentication_failed_cb             = core.pinggy_on_authentication_failed_cb_t(self.__func_authentication_failed)
+        self.__tunnel_established_cb                = core.pinggy_on_tunnel_established_cb_t(self.__func_tunnel_established)
+        self.__tunnel_failed_cb                     = core.pinggy_on_tunnel_failed_cb_t(self.__func_tunnel_failed)
         self.__additional_forwarding_succeeded_cb   = core.pinggy_on_additional_forwarding_succeeded_cb_t(self.__func_additional_forwarding_succeeded)
         self.__additional_forwarding_failed_cb      = core.pinggy_on_additional_forwarding_failed_cb_t(self.__func_additional_forwarding_failed)
         self.__forwarding_changed_cb                = core.pinggy_on_forwardings_changed_cb_t(self.__func_forwardings_changed)
@@ -415,16 +416,16 @@ class Tunnel:
         self.__setup_callbacks()
 
     def __setup_callbacks(self):
-        if not core.pinggy_tunnel_set_on_connected_callback(self.__tunnelRef, self.__connected_cb, None):
-            logger.error(f"Could not setup callback for `pinggy_set_connected_callback`")
-        if not core.pinggy_tunnel_set_on_authenticated_callback(self.__tunnelRef, self.__authenticated_cb, None):
-            logger.error(f"Could not setup callback for `pinggy_set_authenticated_callback`")
-        if not core.pinggy_tunnel_set_on_authentication_failed_callback(self.__tunnelRef, self.__authentication_failed_cb, None):
-            logger.error(f"Could not setup callback for `pinggy_set_authenticationFailed_callback`")
-        if not core.pinggy_tunnel_set_on_forwarding_succeeded_callback(self.__tunnelRef, self.__primary_forwarding_succeeded_cb, None):
-            logger.error(f"Could not setup callback for `pinggy_tunnel_set_on_forwarding_succeeded_callback`")
-        if not core.pinggy_tunnel_set_on_forwarding_failed_callback(self.__tunnelRef, self.__primary_forwarding_failed_cb, None):
-            logger.error(f"Could not setup callback for `pinggy_tunnel_set_on_forwarding_failed_callback`")
+        # if not core.pinggy_tunnel_set_on_connected_callback(self.__tunnelRef, self.__connected_cb, None):
+        #     logger.error(f"Could not setup callback for `pinggy_set_connected_callback`")
+        # if not core.pinggy_tunnel_set_on_authenticated_callback(self.__tunnelRef, self.__authenticated_cb, None):
+        #     logger.error(f"Could not setup callback for `pinggy_set_authenticated_callback`")
+        # if not core.pinggy_tunnel_set_on_authentication_failed_callback(self.__tunnelRef, self.__authentication_failed_cb, None):
+        #     logger.error(f"Could not setup callback for `pinggy_set_authenticationFailed_callback`")
+        if not core.pinggy_tunnel_set_on_tunnel_established_callback(self.__tunnelRef, self.__tunnel_established_cb, None):
+            logger.error(f"Could not setup callback for `pinggy_tunnel_set_on_tunnel_established_callback`")
+        if not core.pinggy_tunnel_set_on_tunnel_failed_callback(self.__tunnelRef, self.__tunnel_failed_cb, None):
+            logger.error(f"Could not setup callback for `pinggy_tunnel_set_on_tunnel_failed_callback`")
         if not core.pinggy_tunnel_set_on_additional_forwarding_succeeded_callback(self.__tunnelRef, self.__additional_forwarding_succeeded_cb, None):
             logger.error(f"Could not setup callback for `pinggy_tunnel_set_additional_forwarding_succeeded_callback`")
         if not core.pinggy_tunnel_set_on_additional_forwarding_failed_callback(self.__tunnelRef, self.__additional_forwarding_failed_cb, None):
@@ -649,30 +650,33 @@ class Tunnel:
     #         self.__resumable = False
     #         return
 
-    def __func_connected(self, userdata, ref):
-        self.__eventHandler.connected()
+    # def __func_connected(self, userdata, ref):
+    #     self.__eventHandler.connected()
+    #     # print(f"AuthenticatedFunc: Reference: {ref}")
 
-    def __func_authenticated(self, userdata, ref):
-        self.__authenticated = True
-        self.__continue_polling = False
-        self.__eventHandler.authenticated()
+    # def __func_authenticated(self, userdata, ref):
+    #     self.__authenticated = True
+    #     self.__continue_polling = False
+    #     self.__eventHandler.authenticated()
+    #     # print(f"AuthenticatedFunc: Reference: {ref}")
 
-    def __func_authentication_failed(self, userdata, ref, l, arr):
-        self.__continue_polling = False
-        self.authentication_messages = core._getStringArray(l, arr)
-        self.__eventHandler.authentication_failed(core._getStringArray(l, arr))
+    # def __func_authentication_failed(self, userdata, ref, l, arr):
+    #     self.__continue_polling = False
+    #     self.authentication_messages = core._getStringArray(l, arr)
+    #     self.__eventHandler.authentication_failed(core._getStringArray(l, arr))
+    #     # print(f"AuthenticationFailedFunc: Reference: {ref} {l} {arr} {core._getStringArray(l, arr)}")
 
-    def __func_primary_forwarding_succeeded(self, userdata, ref, l, arr):
+    def __func_tunnel_established(self, userdata, ref, l, arr):
         self.tunnel_statup_messages = core._getStringArray(l, arr)
         self.__continue_polling = False
         self.__tunnel_started = True
         self.__urls = core._getStringArray(l, arr)
-        self.__eventHandler.forwarding_succeeded()
+        self.__eventHandler.tunnel_established(self.__urls)
 
-    def __func_primary_forwarding_failed(self, userdata, ref, msg):
+    def __func_tunnel_failed(self, userdata, ref, msg):
         self.tunnel_statup_messages = [msg.decode('utf-8')]
         self.__continue_polling = False
-        self.__eventHandler.forwarding_failed(msg)
+        self.__eventHandler.tunnel_failed(msg)
 
     def __func_additional_forwarding_succeeded(self, userdata, ref, bindAddr, forwardTo, forwardingType):
         bindAddr = bindAddr.decode('utf-8')
@@ -1143,6 +1147,32 @@ class Tunnel:
         if type(val) != str:
             raise Exception("Only string type allowed")
         core.pinggy_config_set_local_server_tls(self.__configRef, val)
+
+
+    @property
+    def webdebugger_port(self):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        return core.pinggy_config_get_webdebugger_port(self.__configRef)
+
+    @webdebugger_port.setter
+    def webdebugger_port(self, val):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        return core.pinggy_config_set_webdebugger_port(self.__configRef, val)
+
+
+    @property
+    def webdebugger(self):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        return core.pinggy_config_get_webdebugger(self.__configRef)
+
+    @webdebugger.setter
+    def webdebugger(self, val):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        return core.pinggy_config_set_webdebugger(self.__configRef, bool(val))
 
 
     @property
