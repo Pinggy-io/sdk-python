@@ -232,26 +232,6 @@ pinggy_config_reset_forwardings                                 = __getFromCDLLI
                                                                         pinggy_void_t,
                                                                         [pinggy_ref_t]
                                                                         )
-# pinggy_config_set_type                                          = __getFromCDLLIfSupported(
-#                                                                         "pinggy_config_set_type",
-#                                                                         pinggy_void_t,
-#                                                                         [pinggy_ref_t, pinggy_char_p_t]
-#                                                                         )
-# pinggy_config_set_udp_type                                      = __getFromCDLLIfSupported(
-#                                                                         "pinggy_config_set_udp_type",
-#                                                                         pinggy_void_t,
-#                                                                         [pinggy_ref_t, pinggy_char_p_t]
-#                                                                         )
-# pinggy_config_set_tcp_forward_to                                = __getFromCDLLIfSupported(
-#                                                                         "pinggy_config_set_tcp_forward_to",
-#                                                                         pinggy_void_t,
-#                                                                         [pinggy_ref_t, pinggy_char_p_t]
-#                                                                         )
-# pinggy_config_set_udp_forward_to                                = __getFromCDLLIfSupported(
-#                                                                         "pinggy_config_set_udp_forward_to",
-#                                                                         pinggy_void_t,
-#                                                                         [pinggy_ref_t, pinggy_char_p_t]
-#                                                                         )
 pinggy_config_set_force                                         = __getFromCDLLIfSupported(
                                                                         "pinggy_config_set_force",
                                                                         pinggy_void_t,
@@ -354,10 +334,10 @@ pinggy_config_set_local_server_tls                              = __getFromCDLLI
                                                                         pinggy_void_t,
                                                                         [pinggy_ref_t, pinggy_const_char_p_t]
                                                                         )
-pinggy_config_set_webdebugger_port                              = __getFromCDLLIfSupported(
-                                                                        "pinggy_config_set_webdebugger_port",
+pinggy_config_set_webdebugger_addr                              = __getFromCDLLIfSupported(
+                                                                        "pinggy_config_set_webdebugger_addr",
                                                                         pinggy_void_t,
-                                                                        [pinggy_ref_t, pinggy_uint16_t]
+                                                                        [pinggy_ref_t, pinggy_const_char_p_t]
                                                                         )
 pinggy_config_set_webdebugger                                   = __getFromCDLLIfSupported(
                                                                         "pinggy_config_set_webdebugger",
@@ -388,54 +368,6 @@ pinggy_config_get_token_len                                     = __getFromCDLLI
                                                                         [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t, pinggy_capa_p_t],
                                                                         getstring=True
                                                                         )
-# pinggy_config_get_type                                          = __getFromCDLLIfSupported(
-#                                                                         "pinggy_config_get_type",
-#                                                                         pinggy_const_int_t,
-#                                                                         [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t],
-#                                                                         getstring=True
-#                                                                         )
-# pinggy_config_get_type_len                                      = __getFromCDLLIfSupported(
-#                                                                         "pinggy_config_get_type_len",
-#                                                                         pinggy_const_int_t,
-#                                                                         [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t, pinggy_capa_p_t],
-#                                                                         getstring=True
-#                                                                         )
-# pinggy_config_get_udp_type                                      = __getFromCDLLIfSupported(
-#                                                                         "pinggy_config_get_udp_type",
-#                                                                         pinggy_const_int_t,
-#                                                                         [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t],
-#                                                                         getstring=True
-#                                                                         )
-# pinggy_config_get_udp_type_len                                  = __getFromCDLLIfSupported(
-#                                                                         "pinggy_config_get_udp_type_len",
-#                                                                         pinggy_const_int_t,
-#                                                                         [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t, pinggy_capa_p_t],
-#                                                                         getstring=True
-#                                                                         )
-# pinggy_config_get_tcp_forward_to                                = __getFromCDLLIfSupported(
-#                                                                         "pinggy_config_get_tcp_forward_to",
-#                                                                         pinggy_const_int_t,
-#                                                                         [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t],
-#                                                                         getstring=True
-#                                                                         )
-# pinggy_config_get_tcp_forward_to_len                            = __getFromCDLLIfSupported(
-#                                                                         "pinggy_config_get_tcp_forward_to_len",
-#                                                                         pinggy_const_int_t,
-#                                                                         [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t, pinggy_capa_p_t],
-#                                                                         getstring=True
-#                                                                         )
-# pinggy_config_get_udp_forward_to                                = __getFromCDLLIfSupported(
-#                                                                         "pinggy_config_get_udp_forward_to",
-#                                                                         pinggy_const_int_t,
-#                                                                         [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t],
-#                                                                         getstring=True
-#                                                                         )
-# pinggy_config_get_udp_forward_to_len                            = __getFromCDLLIfSupported(
-#                                                                         "pinggy_config_get_udp_forward_to_len",
-#                                                                         pinggy_const_int_t,
-#                                                                         [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t, pinggy_capa_p_t],
-#                                                                         getstring=True
-#                                                                         )
 pinggy_config_get_force                                         = __getFromCDLLIfSupported(
                                                                         "pinggy_config_get_force",
                                                                         pinggy_const_bool_t,
@@ -597,34 +529,23 @@ pinggy_config_get_local_server_tls_len                          = __getFromCDLLI
                                                                         [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t, pinggy_capa_p_t],
                                                                         getstring=True
                                                                         )
-pinggy_config_get_webdebugger_port                              = __getFromCDLLIfSupported(
-                                                                        "pinggy_config_get_webdebugger_port",
-                                                                        pinggy_uint16_t,
-                                                                        [pinggy_ref_t]
+pinggy_config_get_webdebugger_addr                              = __getFromCDLLIfSupported(
+                                                                        "pinggy_config_get_webdebugger_addr",
+                                                                        pinggy_const_int_t,
+                                                                        [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t],
+                                                                        getstring=True
+                                                                        )
+pinggy_config_get_webdebugger_addr_len                          = __getFromCDLLIfSupported(
+                                                                        "pinggy_config_get_webdebugger_addr_len",
+                                                                        pinggy_const_int_t,
+                                                                        [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t, pinggy_capa_p_t],
+                                                                        getstring=True
                                                                         )
 pinggy_config_get_webdebugger                                   = __getFromCDLLIfSupported(
                                                                         "pinggy_config_get_webdebugger",
                                                                         pinggy_bool_t,
                                                                         [pinggy_ref_t]
                                                                         )
-# pinggy_tunnel_set_on_connected_callback                         = __getFromCDLLIfSupported(
-#                                                                         "pinggy_tunnel_set_on_connected_callback",
-#                                                                         pinggy_bool_t,
-#                                                                         [pinggy_ref_t, pinggy_on_connected_cb_t, pinggy_void_p_t],
-#                                                                         ret=False
-#                                                                         )
-# pinggy_tunnel_set_on_authenticated_callback                     = __getFromCDLLIfSupported(
-#                                                                         "pinggy_tunnel_set_on_authenticated_callback",
-#                                                                         pinggy_bool_t,
-#                                                                         [pinggy_ref_t, pinggy_on_authenticated_cb_t, pinggy_void_p_t],
-#                                                                         ret=False
-#                                                                         )
-# pinggy_tunnel_set_on_authentication_failed_callback             = __getFromCDLLIfSupported(
-#                                                                         "pinggy_tunnel_set_on_authentication_failed_callback",
-#                                                                         pinggy_bool_t,
-#                                                                         [pinggy_ref_t, pinggy_on_authentication_failed_cb_t, pinggy_void_p_t],
-#                                                                         ret=False
-#                                                                         )
 pinggy_tunnel_set_on_tunnel_established_callback                = __getFromCDLLIfSupported(
                                                                         "pinggy_tunnel_set_on_tunnel_established_callback",
                                                                         pinggy_bool_t,
@@ -718,11 +639,6 @@ pinggy_tunnel_start_non_blocking                                = __getFromCDLLI
                                                                         pinggy_bool_t,
                                                                         [pinggy_ref_t]
                                                                         )
-# pinggy_tunnel_connect                                           = __getFromCDLLIfSupported(
-#                                                                         "pinggy_tunnel_connect",
-#                                                                         pinggy_bool_t,
-#                                                                         [pinggy_ref_t]
-#                                                                         )
 pinggy_tunnel_resume                                            = __getFromCDLLIfSupported(
                                                                         "pinggy_tunnel_resume",
                                                                         pinggy_bool_t,
@@ -740,14 +656,9 @@ pinggy_tunnel_is_active                                         = __getFromCDLLI
                                                                         )
 pinggy_tunnel_start_web_debugging                               = __getFromCDLLIfSupported(
                                                                         "pinggy_tunnel_start_web_debugging",
-                                                                        pinggy_uint16_t,
-                                                                        [pinggy_ref_t, pinggy_uint16_t]
+                                                                        pinggy_bool_t,
+                                                                        [pinggy_ref_t, pinggy_const_char_p_t]
                                                                         )
-# pinggy_tunnel_request_primary_forwarding                        = __getFromCDLLIfSupported(
-#                                                                         "pinggy_tunnel_request_primary_forwarding",
-#                                                                         pinggy_void_t,
-#                                                                         [pinggy_ref_t]
-#                                                                         )
 pinggy_tunnel_request_additional_forwarding                     = __getFromCDLLIfSupported(
                                                                         "pinggy_tunnel_request_additional_forwarding",
                                                                         pinggy_void_t,
@@ -783,6 +694,18 @@ pinggy_tunnel_get_greeting_msgs                                 = __getFromCDLLI
                                                                         )
 pinggy_tunnel_get_greeting_msgs_len                             = __getFromCDLLIfSupported(
                                                                         "pinggy_tunnel_get_greeting_msgs_len",
+                                                                        pinggy_const_int_t,
+                                                                        [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t, pinggy_capa_p_t],
+                                                                        getstring=True
+                                                                        )
+pinggy_tunnel_get_webdebugging_addr                             = __getFromCDLLIfSupported(
+                                                                        "pinggy_tunnel_get_webdebugging_addr",
+                                                                        pinggy_const_int_t,
+                                                                        [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t],
+                                                                        getstring=True
+                                                                        )
+pinggy_tunnel_get_webdebugging_addr_len                         = __getFromCDLLIfSupported(
+                                                                        "pinggy_tunnel_get_webdebugging_addr_len",
                                                                         pinggy_const_int_t,
                                                                         [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t, pinggy_capa_p_t],
                                                                         getstring=True

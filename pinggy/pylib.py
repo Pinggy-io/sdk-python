@@ -1153,13 +1153,27 @@ class Tunnel:
     def webdebugger_port(self):
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
-        return core.pinggy_config_get_webdebugger_port(self.__configRef)
+        addr = core.pinggy_config_get_webdebugger_addr_len(self.__configRef)
+        return int(addr.split(":")[1])
 
     @webdebugger_port.setter
     def webdebugger_port(self, val):
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
-        return core.pinggy_config_set_webdebugger_port(self.__configRef, val)
+        return core.pinggy_config_set_webdebugger_addr(self.__configRef, "localhost:%s"%(val))
+
+
+    @property
+    def webdebugger_addr(self):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        return core.pinggy_config_get_webdebugger_addr_len(self.__configRef)
+
+    @webdebugger_addr.setter
+    def webdebugger_addr(self, val):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        return core.pinggy_config_set_webdebugger_addr(self.__configRef, val)
 
 
     @property
