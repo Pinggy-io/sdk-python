@@ -947,6 +947,24 @@ class Tunnel:
         # self.__bearerauth = bearerauth
 
 
+    def __parseHmString(self, hm: str):
+        parts = hm.split(":", 1)
+        if len(parts) <= 1:
+            return None
+        typ = parts[0]
+        values = parts[1]
+        if typ == "r":
+            return {"type": "remove", "key": values}
+        kv = hm.split(":", 1)
+        if len(kv) <= 1:
+            return None
+        key, val = kv
+        if typ == "u":
+            return {"type": "update", "key": key, "value" :[val]}
+        if typ == "a":
+            return {"type": "add", "key": key, "value" :[val]}
+        return None
+
     @property
     def headermodification(self):
         """list[str]|None: list of header modifications. Check https://pinggy.io/docs/advanced/live_header/ for more details"""
@@ -954,12 +972,20 @@ class Tunnel:
         return json.loads(ret)
 
     @headermodification.setter
-    def headermodification(self, headermodification: list[dict[str, str]]):
+    def headermodification(self, headermodifications: list[dict[str, str]]):
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
-        if headermodification is None:
-            headermodification = []
-        core.pinggy_config_set_header_manipulations(self.__configRef, json.dumps(headermodification))
+        if headermodifications is None:
+            headermodifications = []
+        processedHm = []
+        for hm in headermodifications:
+            if type(hm) != str:
+                processedHm.append(hm)
+                continue
+            nhm = self.__parseHmString(hm)
+            if nhm is not None:
+                processedHm.append(nhm)
+        core.pinggy_config_set_header_manipulations(self.__configRef, json.dumps(processedHm))
 
     def remove_header(self, header_name):
         self.removeHeader(header_name)
