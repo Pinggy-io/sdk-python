@@ -1161,7 +1161,7 @@ def start_tunnel(
                     Example: ["1234"]
 
         headermodification: list of header modification that would be added. More detail at https://pinggy.io/docs/advanced/live_header/
-                    Example: [{"type": "remove", "key": "Accept"}, {"type": "update", "key": "UserAgent", "value" :["PinggyTestServer 1.2.3"]}]
+                    Example: [{"type": "remove", "key": "Accept"}, {"type": "update", "key": "UserAgent", "value" :["PinggyTestServer 1.2.3"]}], ["r:Accept", "u:UserAgent:PinggyTestServer 1.2.3"]
 
         webdebuggerport: Webdebugging port. Webdebugging would start only if valid port is provided. Example: 4300
 
