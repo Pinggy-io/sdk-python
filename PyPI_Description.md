@@ -80,7 +80,7 @@ tunnel = pinggy.start_tunnel(
     token="your_token_here",
     type="tls",
     localservertls=True,  # Enable TLS for local server
-    headermodification=["a:X-Test:Value", "r:User-Agent"],
+    headermodification=[{"type": "remove", "key": "Accept"}, {"type": "update", "key": "UserAgent", "value" :["PinggyTestServer 1.2.3"]}],
     reverseproxy=False
 )
 
