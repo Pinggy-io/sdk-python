@@ -4,6 +4,9 @@ import threading
 import shlex
 import threading
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 from . import pinggyexception
 
@@ -108,13 +111,13 @@ class Channel:
         self.__cleanup_cb       = core.pinggy_channel_on_cleanup_cb_t(self.__func_cleanup)
 
         if not core.pinggy_tunnel_channel_set_on_data_received_callback(self.__channelRef, self.__data_received_cb, None):
-            print(f"Could not setup callback `pinggy_channel_data_received_cb_t` for channel {self.__channelRef}")
+            logger.error(f"Could not setup callback `pinggy_channel_data_received_cb_t` for channel {self.__channelRef}")
         if not core.pinggy_tunnel_channel_set_on_ready_to_send_callback(self.__channelRef, self.__ready_to_send_cb, None):
-            print(f"Could not setup callback `pinggy_channel_ready_to_send_cb_t` for channel {self.__channelRef}")
+            logger.error(f"Could not setup callback `pinggy_channel_ready_to_send_cb_t` for channel {self.__channelRef}")
         if not core.pinggy_tunnel_channel_set_on_error_callback(self.__channelRef, self.__error_cb, None):
-            print(f"Could not setup callback `pinggy_channel_error_cb_t` for channel {self.__channelRef}")
+            logger.error(f"Could not setup callback `pinggy_channel_error_cb_t` for channel {self.__channelRef}")
         if not core.pinggy_tunnel_channel_set_on_cleanup_callback(self.__channelRef, self.__cleanup_cb, None):
-            print(f"Could not setup callback `pinggy_channel_cleanup_cb_t` for channel {self.__channelRef}")
+            logger.error(f"Could not setup callback `pinggy_channel_cleanup_cb_t` for channel {self.__channelRef}")
 
     def __func_data_received(self, userdata, channelRef):
         assert channelRef == self.__channelRef
@@ -186,7 +189,6 @@ class BaseTunnelHandler:
         """
         Triggers when tunnel successfully authenticated. Authentication happen even for free tunnels.
         """
-        # print(f"Tunnel authenticated")
 
     def authentication_failed(self, errors):
         """
@@ -196,7 +198,7 @@ class BaseTunnelHandler:
         Args:
             errors (list(str)): Authentication failure reasons.
         """
-        print(f"Tunnel is failed to authenticate. reasons: {errors}")
+        logger.error(f"Tunnel is failed to authenticate. reasons: {errors}")
 
     def primary_forwarding_succeeded(self):
         """
@@ -206,7 +208,6 @@ class BaseTunnelHandler:
 
         Once this step done, one can fetch the urls from the tunnel.
         """
-        # print(f"Forwarding succeeded. urls: {self.tunnel.urls}")
 
     def primary_forwarding_failed(self, msg):
         """
@@ -215,7 +216,7 @@ class BaseTunnelHandler:
         Agrs:
             msg (str): the reason why it failes.
         """
-        print(f"Forwarding failed with msg {msg}")
+        logger.error(f"Forwarding failed with msg {msg}")
 
     def additional_forwarding_succeeded(self, bindAddr, forwardTo):
         """
@@ -228,13 +229,13 @@ class BaseTunnelHandler:
             bindAddr (str): remote address where connection can be sent.
             forwardTo (str): address to which connection would forwarded. It is equivalen to `tcp_forward_to`.
         """
-        print(f"Additional forwarding from {bindAddr} to {forwardTo} succeeded")
+        logger.debug(f"Additional forwarding from {bindAddr} to {forwardTo} succeeded")
 
     def additional_forwarding_failed(self, bindAddr, forwardTo, err):
         """
         Triggers when additional forwarding fails
         """
-        print(f"Additional forwarding from {bindAddr} to {forwardTo} failed with error {err}")
+        logger.error(f"Additional forwarding from {bindAddr} to {forwardTo} failed with error {err}")
 
     def disconnected(self, msg):
         """
@@ -243,7 +244,7 @@ class BaseTunnelHandler:
         Agrs:
             msg (str): disconnection reason.
         """
-        print(f"Tunnel disconnected with msg {msg}")
+        logger.debug(f"Tunnel disconnected with msg {msg}")
 
     def tunnel_error(self, errorNo, msg, recoverable):
         """
@@ -254,7 +255,7 @@ class BaseTunnelHandler:
             msg (str): description
             recoverable (bool): whether a error is recoverable or not. Application should ignore recoverable errors.
         """
-        print(f"Tunnel error occured {errorNo}, {msg}, {recoverable}")
+        logger.error(f"Tunnel error occured {errorNo}, {msg}, {recoverable}")
 
     def handle_channel(self):
         """
@@ -266,7 +267,7 @@ class BaseTunnelHandler:
         """
         **Do not use**
         """
-        print(f"New channel received. rejecting it. override `new_channel` method to handle the channel or return `False` from `handle_channel` method")
+        logger.debug(f"New channel received. rejecting it. override `new_channel` method to handle the channel or return `False` from `handle_channel` method")
         channel.reject()
 
     def will_reconnect(self, messages):
@@ -274,7 +275,7 @@ class BaseTunnelHandler:
     def reconnecting(self, retry_cnt):
         pass
     def reconnection_completed(self):
-        print(self.tunnel.urls)
+        logger.debug(self.tunnel.urls)
         pass
     def reconnection_failed(self, retry_cnt):
         pass
@@ -390,37 +391,36 @@ class Tunnel:
         self.__setup_callbacks()
 
     def __setup_callbacks(self):
-        # print("Setting up callback")
         if not core.pinggy_tunnel_set_on_connected_callback(self.__tunnelRef, self.__connected_cb, None):
-            print(f"Could not setup callback for `pinggy_set_connected_callback`")
+            logger.error(f"Could not setup callback for `pinggy_set_connected_callback`")
         if not core.pinggy_tunnel_set_on_authenticated_callback(self.__tunnelRef, self.__authenticated_cb, None):
-            print(f"Could not setup callback for `pinggy_set_authenticated_callback`")
+            logger.error(f"Could not setup callback for `pinggy_set_authenticated_callback`")
         if not core.pinggy_tunnel_set_on_authentication_failed_callback(self.__tunnelRef, self.__authentication_failed_cb, None):
-            print(f"Could not setup callback for `pinggy_set_authenticationFailed_callback`")
+            logger.error(f"Could not setup callback for `pinggy_set_authenticationFailed_callback`")
         if not core.pinggy_tunnel_set_on_primary_forwarding_succeeded_callback(self.__tunnelRef, self.__primary_forwarding_succeeded_cb, None):
-            print(f"Could not setup callback for `pinggy_tunnel_set_primary_forwarding_succeeded_callback`")
+            logger.error(f"Could not setup callback for `pinggy_tunnel_set_primary_forwarding_succeeded_callback`")
         if not core.pinggy_tunnel_set_on_primary_forwarding_failed_callback(self.__tunnelRef, self.__primary_forwarding_failed_cb, None):
-            print(f"Could not setup callback for `pinggy_tunnel_set_primary_forwarding_failed_callback`")
+            logger.error(f"Could not setup callback for `pinggy_tunnel_set_primary_forwarding_failed_callback`")
         if not core.pinggy_tunnel_set_on_additional_forwarding_succeeded_callback(self.__tunnelRef, self.__additional_forwarding_succeeded_cb, None):
-            print(f"Could not setup callback for `pinggy_tunnel_set_additional_forwarding_succeeded_callback`")
+            logger.error(f"Could not setup callback for `pinggy_tunnel_set_additional_forwarding_succeeded_callback`")
         if not core.pinggy_tunnel_set_on_additional_forwarding_failed_callback(self.__tunnelRef, self.__additional_forwarding_failed_cb, None):
-            print(f"Could not setup callback for `pinggy_tunnel_set_additional_forwarding_failed_callback`")
+            logger.error(f"Could not setup callback for `pinggy_tunnel_set_additional_forwarding_failed_callback`")
         if not core.pinggy_tunnel_set_on_disconnected_callback(self.__tunnelRef, self.__disconnected_cb, None):
-            print(f"Could not setup callback for `pinggy_set_disconnected_callback`")
+            logger.error(f"Could not setup callback for `pinggy_set_disconnected_callback`")
         if not core.pinggy_tunnel_set_on_will_reconnect_callback(self.__tunnelRef, self.__will_reconnect_cb, None):
-            print(f"Could not setup callback for `pinggy_tunnel_set_on_will_reconnect_callback`")
+            logger.error(f"Could not setup callback for `pinggy_tunnel_set_on_will_reconnect_callback`")
         if not core.pinggy_tunnel_set_on_reconnecting_callback(self.__tunnelRef, self.__reconnecting_cb, None):
-            print(f"Could not setup callback for `pinggy_tunnel_set_on_reconnecting_callback`")
+            logger.error(f"Could not setup callback for `pinggy_tunnel_set_on_reconnecting_callback`")
         if not core.pinggy_tunnel_set_on_reconnection_completed_callback(self.__tunnelRef, self.__reconnection_completed_cb, None):
-            print(f"Could not setup callback for `pinggy_tunnel_set_on_reconnection_completed_callback`")
+            logger.error(f"Could not setup callback for `pinggy_tunnel_set_on_reconnection_completed_callback`")
         if not core.pinggy_tunnel_set_on_reconnection_failed_callback(self.__tunnelRef, self.__reconnection_failed_cb, None):
-            print(f"Could not setup callback for `pinggy_tunnel_set_on_reconnection_failed_callback`")
+            logger.error(f"Could not setup callback for `pinggy_tunnel_set_on_reconnection_failed_callback`")
         if not core.pinggy_tunnel_set_on_usage_update_callback(self.__tunnelRef, self.__usage_update_cb, None):
-            print(f"Could not setup callback for `pinggy_tunnel_set_on_usage_update_callback`")
+            logger.error(f"Could not setup callback for `pinggy_tunnel_set_on_usage_update_callback`")
         if not core.pinggy_tunnel_set_on_tunnel_error_callback(self.__tunnelRef, self.__tunnel_error_cb, None):
-            print(f"Could not setup callback for `pinggy_set_tunnel_error_callback`")
+            logger.error(f"Could not setup callback for `pinggy_set_tunnel_error_callback`")
         if not core.pinggy_tunnel_set_on_new_channel_callback(self.__tunnelRef, self.__new_channel_cb, None):
-            print(f"Could not setup callback for `pinggy_tunnel_set_new_channel_callback`")
+            logger.error(f"Could not setup callback for `pinggy_tunnel_set_new_channel_callback`")
 
 
     def __del__(self): #TODO stop tunnel if it is not already
@@ -428,7 +428,7 @@ class Tunnel:
             core.pinggy_free_ref(self.__configRef)
         if self.__tunnelRef:
             if core.pinggy_free_ref(self.__tunnelRef) == 0:
-                print("Could not free")
+                logger.error("Could not free")
             self.__tunnelRef = 0
 
     def start_with_c(self):
@@ -436,7 +436,7 @@ class Tunnel:
         ** DO NOT USE THIS METHOD **
         """
         self.__editableConfig = False
-        print("Kindly don't use this method")
+        logger.warning("Kindly don't use this method")
         core.pinggy_tunnel_start(self.__tunnelRef)
 
     def start(self, thread=False):
@@ -614,19 +614,16 @@ class Tunnel:
 
     def __func_connected(self, userdata, ref):
         self.__eventHandler.connected()
-        # print(f"AuthenticatedFunc: Reference: {ref}")
 
     def __func_authenticated(self, userdata, ref):
         self.__authenticated = True
         self.__continue_polling = False
         self.__eventHandler.authenticated()
-        # print(f"AuthenticatedFunc: Reference: {ref}")
 
     def __func_authentication_failed(self, userdata, ref, l, arr):
         self.__continue_polling = False
         self.authentication_messages = core._getStringArray(l, arr)
         self.__eventHandler.authentication_failed(core._getStringArray(l, arr))
-        # print(f"AuthenticationFailedFunc: Reference: {ref} {l} {arr} {core._getStringArray(l, arr)}")
 
     def __func_primary_forwarding_succeeded(self, userdata, ref, l, arr):
         self.tunnel_statup_messages = core._getStringArray(l, arr)
@@ -634,35 +631,29 @@ class Tunnel:
         self.__tunnel_started = True
         self.__urls = core._getStringArray(l, arr)
         self.__eventHandler.primary_forwarding_succeeded()
-        # print(f"PrimaryForwardingSucceeded: Reference: {ref} {l} {arr} {core._getStringArray(l, arr)}")
 
     def __func_primary_forwarding_failed(self, userdata, ref, msg):
         self.tunnel_statup_messages = [msg.decode('utf-8')]
         self.__continue_polling = False
         self.__eventHandler.primary_forwarding_failed(msg)
-        # print(f"PrimaryForwardingFailed: Reference: {ref} {msg}")
 
     def __func_additional_forwarding_succeeded(self, userdata, ref, bindAddr, forwardTo):
         bindAddr = bindAddr.decode('utf-8')
         forwardTo = forwardTo.decode('utf-8')
         self.__eventHandler.additional_forwarding_succeeded(bindAddr, forwardTo)
-        # print(f"RemoteFowardingSucceeded: Reference: {ref} `{bindAddr}` `{forwardTo}`")
 
     def __func_additional_forwarding_failed(self, userdata, ref, bindAddr, forwardTo, err):
         bindAddr = bindAddr.decode('utf-8')
         forwardTo = forwardTo.decode('utf-8')
         err = err.decode('utf-8')
         self.__eventHandler.additional_forwarding_failed(bindAddr, forwardTo, err)
-        # print(f"RemoteFowardingSucceeded: Reference: {ref} `{bindAddr}` `{forwardTo}` `{err}`")
 
     def __func_disconnected(self, userdata, ref, msg, l, arr):
         self.__continue_polling = False
         self.__resumable = False
         self.__eventHandler.disconnected(msg.decode('utf-8'))
-        # print(f"DisconnectedFunc: Reference: {ref} {msg} {l} {arr} {core._getStringArray(l, arr)}")
 
     def __func_tunnel_error(self, userdata, ref, errorNo, msg, recoverable):
-        # print(f"DisconnectedFunc: Reference: {ref} {msg} {l} {arr} {core._getStringArray(l, arr)}")
         self.__eventHandler.tunnel_error(errorNo, msg, recoverable)
 
     def __func_new_channel(self, userdata, ref, chan_ref):
