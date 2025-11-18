@@ -847,7 +847,7 @@ pinggy_version                                                  = __getFromCDLLI
                                                                         getstring=True
                                                                         )
 pinggy_version_len                                              = __getFromCDLLIfSupported(
-                                                                        "pinggy_version",
+                                                                        "pinggy_version_len",
                                                                         pinggy_const_int_t,
                                                                         [pinggy_capa_t, pinggy_char_p_t, pinggy_capa_p_t],
                                                                         getstring=True
