@@ -123,15 +123,15 @@ class TestTunnelProperties(unittest.TestCase):
         # Add a header using addHeader
         self.tunnel.headermodification = None
         self.assertEqual('', self.tunnel.argument)
-        self.tunnel.addHeader('X-Test', 'Value one')
+        self.tunnel.add_header('X-Test', 'Value one')
         self.assertEqual('"a:X-Test:Value one"', self.tunnel.argument)
         # Remove a header using removeHeader
         self.tunnel.headermodification = None
-        self.tunnel.removeHeader('X-Remove')
+        self.tunnel.remove_header('X-Remove')
         self.assertEqual('r:X-Remove', self.tunnel.argument)
         # Update a header using updateHeader
         self.tunnel.headermodification = None
-        self.tunnel.updateHeader('X-Update', 'NewValue')
+        self.tunnel.update_header('X-Update', 'NewValue')
         # self.assertIn('a:X-Update:NewValue', self.tunnel.headermodification)
         self.assertEqual('u:X-Update:NewValue', self.tunnel.argument)
 
