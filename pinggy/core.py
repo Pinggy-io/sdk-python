@@ -662,7 +662,7 @@ pinggy_tunnel_start_web_debugging                               = __getFromCDLLI
 pinggy_tunnel_request_additional_forwarding                     = __getFromCDLLIfSupported(
                                                                         "pinggy_tunnel_request_additional_forwarding",
                                                                         pinggy_void_t,
-                                                                        [pinggy_ref_t, pinggy_const_char_p_t, pinggy_const_char_p_t]
+                                                                        [pinggy_ref_t, pinggy_const_char_p_t, pinggy_const_char_p_t, pinggy_const_char_p_t]
                                                                         )
 pinggy_tunnel_start_usage_update                                = __getFromCDLLIfSupported(
                                                                         "pinggy_tunnel_start_usage_update",

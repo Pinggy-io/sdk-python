@@ -117,7 +117,7 @@ Flow 1:
     >         |       |
     >         |       `-> primary forwarding succeeded callback
     >         |
-    >         |-> request_additional_forwarding(bindaddress, forwardto) -> additional forwarding failed callback
+    >         |-> request_additional_forwarding(bindaddress, forwardto, forwardingtype) -> additional forwarding failed callback
     >         |       |
     >         |       `-> additional forwarding succeeded callback
     >         |
@@ -192,7 +192,7 @@ list[str]|None: List of IP/IP ranges that allowed to connect to the tunnel. SDK 
 
 Check if tunnel is active or not.
 
-### `Tunnel.request_additional_forwarding(self, bindAddr, forwardTo)`
+### `Tunnel.request_additional_forwarding(self, bindAddr, forwardTo, forwardingType)`
 
 Once primary forwarding is done, user can request additional forwarding for other ports.
 

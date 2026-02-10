@@ -474,7 +474,7 @@ class Tunnel:
         raise pinggyexception.PinggyRemovedPropertyError(
             "The method 'request_primary_forwarding' has been removed. Use start instead."
         )
-    def request_additional_forwarding(self, bindAddr, forwardTo):
+    def request_additional_forwarding(self, bindAddr, forwardTo, forwardingType="http"):
         """
         Once primary forwarding is done, user can request additional forwarding for other ports.
 
@@ -482,7 +482,8 @@ class Tunnel:
         """
         bindAddr = bindAddr if isinstance(bindAddr, bytes) else bindAddr.encode('utf-8')
         forwardTo = forwardTo if isinstance(forwardTo, bytes) else forwardTo.encode('utf-8')
-        core.pinggy_tunnel_request_additional_forwarding(self.__tunnelRef, bindAddr, forwardTo)
+        forwardingType = forwardingType if isinstance(forwardingType, bytes) else forwardingType.encode('utf-8')
+        core.pinggy_tunnel_request_additional_forwarding(self.__tunnelRef, bindAddr, forwardTo, forwardingType)
 
     def start_usage_update(self):
         """
