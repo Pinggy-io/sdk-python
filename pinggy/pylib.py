@@ -4,6 +4,10 @@ import threading
 import shlex
 import threading
 import json
+from enum import Enum
+import logging
+
+logger = logging.getLogger(__name__)
 
 from . import pinggyexception
 
@@ -25,6 +29,25 @@ except pinggyexception.PinggyNativeLoaderError as e:
 
 core.disable_sdk_log()
 
+
+
+class TunnelState(Enum):
+    Invalid             =  0
+    Initial             =  1
+    Started             =  2
+    ReconnectInitiated  =  3
+    Reconnecting        =  4
+    Connecting          =  5
+    Connected           =  6
+    SessionInitiating   =  7
+    SessionInitiated    =  8
+    Authenticating      =  9
+    Authenticated       = 10
+    ForwardingInitiated = 11
+    ForwardingSucceeded = 12
+    Stopped             = 13
+    Ended               = 14
+
 def set_log_path(path):
     """
     Set path where native library print its log. Use this function only if requires.
@@ -33,7 +56,6 @@ def set_log_path(path):
     Args:
         path (str): New log path. Path needs to have write permission.
     """
-    path = path if isinstance(path, bytes) else path.encode("utf-8")
     core.pinggy_set_log_path(path)
 
 def disable_log():
@@ -43,6 +65,9 @@ def disable_log():
     core.pinggy_set_log_enable(False)
 
 def enable_log():
+    """
+    Enable libpinggy log.
+    """
     core.pinggy_set_log_enable(True)
 
 setLogPath = set_log_path
@@ -108,13 +133,13 @@ class Channel:
         self.__cleanup_cb       = core.pinggy_channel_on_cleanup_cb_t(self.__func_cleanup)
 
         if not core.pinggy_tunnel_channel_set_on_data_received_callback(self.__channelRef, self.__data_received_cb, None):
-            print(f"Could not setup callback `pinggy_channel_data_received_cb_t` for channel {self.__channelRef}")
+            logger.error(f"Could not setup callback `pinggy_channel_data_received_cb_t` for channel {self.__channelRef}")
         if not core.pinggy_tunnel_channel_set_on_ready_to_send_callback(self.__channelRef, self.__ready_to_send_cb, None):
-            print(f"Could not setup callback `pinggy_channel_ready_to_send_cb_t` for channel {self.__channelRef}")
+            logger.error(f"Could not setup callback `pinggy_channel_ready_to_send_cb_t` for channel {self.__channelRef}")
         if not core.pinggy_tunnel_channel_set_on_error_callback(self.__channelRef, self.__error_cb, None):
-            print(f"Could not setup callback `pinggy_channel_error_cb_t` for channel {self.__channelRef}")
+            logger.error(f"Could not setup callback `pinggy_channel_error_cb_t` for channel {self.__channelRef}")
         if not core.pinggy_tunnel_channel_set_on_cleanup_callback(self.__channelRef, self.__cleanup_cb, None):
-            print(f"Could not setup callback `pinggy_channel_cleanup_cb_t` for channel {self.__channelRef}")
+            logger.error(f"Could not setup callback `pinggy_channel_cleanup_cb_t` for channel {self.__channelRef}")
 
     def __func_data_received(self, userdata, channelRef):
         assert channelRef == self.__channelRef
@@ -177,64 +202,49 @@ class BaseTunnelHandler:
         """
         return self.tunnel
 
-    def connected(self):
+    def tunnel_established(self, url : list[str]):
         """
-        Triggers when tunnel successfully connected. it is probably is not required at all.
-        """
-
-    def authenticated(self):
-        """
-        Triggers when tunnel successfully authenticated. Authentication happen even for free tunnels.
-        """
-        # print(f"Tunnel authenticated")
-
-    def authentication_failed(self, errors):
-        """
-        Triggers when tunnel could not able to authenticate it self. Reasons are provided in the `errors` argument.
-        Any further action on the tunnel object will fail.
-
-        Args:
-            errors (list(str)): Authentication failure reasons.
-        """
-        print(f"Tunnel is failed to authenticate. reasons: {errors}")
-
-    def primary_forwarding_succeeded(self):
-        """
-        Triggers when primary (or default) forwarding successfully completed.
-        Know more about primary (or default) forwarding at
+        Triggers when pre-configured forwardings are successfully completed.
+        Know more about forwarding at
         https://pinggy.io/docs/http_tunnels/multi_port_forwarding/.
 
         Once this step done, one can fetch the urls from the tunnel.
         """
-        # print(f"Forwarding succeeded. urls: {self.tunnel.urls}")
 
-    def primary_forwarding_failed(self, msg):
+    def tunnel_failed(self, msg):
         """
-        Triggers when primary (or default) forwarding fails. The reason is present in the msg.
+        Triggers when pre-configured forwardings are failed. The reason is present in the msg.
 
         Agrs:
-            msg (str): the reason why it failes.
+            msg (str): the reason why it failed.
         """
-        print(f"Forwarding failed with msg {msg}")
+        logger.error(f"Forwarding failed with msg {msg}")
 
-    def additional_forwarding_succeeded(self, bindAddr, forwardTo):
+    def additional_forwarding_succeeded(self, bindAddr, forwardTo, forwardingType):
         """
         Triggers when additional forwarding completes successfully. Learn more at
         https://pinggy.io/docs/http_tunnels/multi_port_forwarding/.
 
-        **This is experimental and not tested**
+        **This is experimental and not well tested**
 
         Agrs:
             bindAddr (str): remote address where connection can be sent.
             forwardTo (str): address to which connection would forwarded. It is equivalen to `tcp_forward_to`.
         """
-        print(f"Additional forwarding from {bindAddr} to {forwardTo} succeeded")
+        logger.debug(f"Additional forwarding from {bindAddr} to {forwardTo} succeeded")
 
-    def additional_forwarding_failed(self, bindAddr, forwardTo, err):
+    def additional_forwarding_failed(self, bindAddr, forwardTo, forwardingType, err):
         """
         Triggers when additional forwarding fails
         """
-        print(f"Additional forwarding from {bindAddr} to {forwardTo} failed with error {err}")
+        logger.error(f"Additional forwarding from {bindAddr} to {forwardTo} failed with error {err}")
+
+    def forwardings_changed(self, forwarding):
+        """
+        Triggeres whenever some changes happens to the forwarding list. It basically contains list of mappings between
+        public url and local forwarding. This function primarily triggers everytime some forwarding completed successfully.
+        """
+        pass
 
     def disconnected(self, msg):
         """
@@ -243,7 +253,7 @@ class BaseTunnelHandler:
         Agrs:
             msg (str): disconnection reason.
         """
-        print(f"Tunnel disconnected with msg {msg}")
+        logger.debug(f"Tunnel disconnected with msg {msg}")
 
     def tunnel_error(self, errorNo, msg, recoverable):
         """
@@ -254,7 +264,7 @@ class BaseTunnelHandler:
             msg (str): description
             recoverable (bool): whether a error is recoverable or not. Application should ignore recoverable errors.
         """
-        print(f"Tunnel error occured {errorNo}, {msg}, {recoverable}")
+        logger.error(f"Tunnel error occured {errorNo}, {msg}, {recoverable}")
 
     def handle_channel(self):
         """
@@ -266,19 +276,56 @@ class BaseTunnelHandler:
         """
         **Do not use**
         """
-        print(f"New channel received. rejecting it. override `new_channel` method to handle the channel or return `False` from `handle_channel` method")
+        logger.debug(f"New channel received. rejecting it. override `new_channel` method to handle the channel or return `False` from `handle_channel` method")
         channel.reject()
 
     def will_reconnect(self, messages):
+        """
+        Triggers when existing tunnel drops and it is configured to reconnect automatically.
+        """
         pass
+
     def reconnecting(self, retry_cnt):
+        """
+        Triggers whenever sdk tries to reconnect the tunnel.
+        """
         pass
+
     def reconnection_completed(self):
-        print(self.tunnel.urls)
+        """
+        Triggers whenever new tunnel established.
+        """
+        logger.debug(self.tunnel.urls)
         pass
+
     def reconnection_failed(self, retry_cnt):
+        """
+        Triggers when the sdk exhaust reconnect attempt and unable to connect at all. This is an unrecoverable error.
+        """
         pass
+
     def usage_update(self, usages):
+        """
+        Server provides usages update to the client. Application have to turn it on by calling `start_usage_update` function
+        """
+        pass
+
+    # ------------------------------------------------------------------
+    # Legacy callback stubs.
+    # libpinggy 0.1.x folded these into tunnel_established/tunnel_failed
+    # and no longer fires them. They exist only so legacy subclasses
+    # that override them or call super().<name>() do not break.
+    # ------------------------------------------------------------------
+    def authenticated(self):
+        pass
+
+    def authentication_failed(self, errors):
+        pass
+
+    def primary_forwarding_succeeded(self):
+        pass
+
+    def primary_forwarding_failed(self, msg):
         pass
 
 class Tunnel:
@@ -292,63 +339,27 @@ class Tunnel:
 
         >>> import pinggy
         >>> tunnel = pinggy.Tunnel()
-        >>> tunnel.tcp_forward_to = "localhost:80"
-        >>> tunnel.start()
+        >>> tunnel.forwardings = "localhost:80"
+        >>> tunnel.start(True)
+        >>> tunnel.urls
 
     Example 2:
 
         >>> import pinggy
         >>> tunnel = pinggy.Tunnel()
-        >>> tunnel.tcp_forward_to = "localhost:80"
-        >>> tunnel.connect()
-        >>> tunnel.request_primary_forwarding()
-        >>> tunnel.serve_tunnel()
-
-    There several configuration available, that one might need to consider.
-
-    Flow 1:
-
-        > Create Tunnel
-        >         |
-        >         |-> set attributes
-        >         |
-        >         |-> connect() -> authentication failed callback
-        >         |       |
-        >         |       `-> authentication success callback
-        >         |
-        >         |-> request_primary_forwarding() -> primary forwarding failed callback
-        >         |       |
-        >         |       `-> primary forwarding succeeded callback
-        >         |
-        >         |-> request_additional_forwarding(bindaddress, forwardto) -> additional forwarding failed callback
-        >         |       |
-        >         |       `-> additional forwarding succeeded callback
-        >         |
-        >         `-> start()
-
-    Flow 2:
-
-        > Create Tunnel
-        >         |
-        >         |-> set attributes
-        >         |
-        >         |-> start() -> authentication failed callback
-        >                 |
-        >                 `-> authentication success callback -> primary forwarding failed callback
-        >                             |
-        >                             `-> primary forwarding succeeded callback
+        >>> tunnel.forwardings = "localhost:80"
+        >>> tunnel.start()
     """
-    def __init__(self, server_address="a.pinggy.io:443", type="", tcp_forward_to=None, udp_forward_to=None, eventClass=BaseTunnelHandler):
-        server_address = server_address if isinstance(server_address, bytes) else server_address.encode("utf-8")
+    def __init__(self, server_address="a.pinggy.io:443", type="", eventClass=BaseTunnelHandler):
         self.__tunnelRef                            = 0
+        self.__configRef                            = 0
         self.__resumable                            = False
-        self.__connected_cb                         = core.pinggy_on_connected_cb_t(self.__func_connected)
-        self.__authenticated_cb                     = core.pinggy_on_authenticated_cb_t(self.__func_authenticated)
-        self.__authentication_failed_cb             = core.pinggy_on_authentication_failed_cb_t(self.__func_authentication_failed)
-        self.__primary_forwarding_succeeded_cb      = core.pinggy_on_primary_forwarding_succeeded_cb_t(self.__func_primary_forwarding_succeeded)
-        self.__primary_forwarding_failed_cb         = core.pinggy_on_primary_forwarding_failed_cb_t(self.__func_primary_forwarding_failed)
+
+        self.__tunnel_established_cb                = core.pinggy_on_tunnel_established_cb_t(self.__func_tunnel_established)
+        self.__tunnel_failed_cb                     = core.pinggy_on_tunnel_failed_cb_t(self.__func_tunnel_failed)
         self.__additional_forwarding_succeeded_cb   = core.pinggy_on_additional_forwarding_succeeded_cb_t(self.__func_additional_forwarding_succeeded)
         self.__additional_forwarding_failed_cb      = core.pinggy_on_additional_forwarding_failed_cb_t(self.__func_additional_forwarding_failed)
+        self.__forwarding_changed_cb                = core.pinggy_on_forwardings_changed_cb_t(self.__func_forwardings_changed)
         self.__disconnected_cb                      = core.pinggy_on_disconnected_cb_t(self.__func_disconnected)
         self.__tunnel_error_cb                      = core.pinggy_on_tunnel_error_cb_t(self.__func_tunnel_error)
         self.__new_channel_cb                       = core.pinggy_on_new_channel_cb_t(self.__func_new_channel)
@@ -361,27 +372,18 @@ class Tunnel:
         self.__configRef                            = core.pinggy_create_config()
         self.__tunnelRef                            = core.pinggy_tunnel_initiate(self.__configRef)
 
-        self.__connected                            = False
-        self.__authenticated                        = False
-        self.__tunnel_started                       = False
-
-        self.__continue_polling                     = True
-        self.__auto                                 = False
-
         self.__lock                                 = threading.Lock()
         self.__editableConfig                       = True
 
+        self.__newForwardingMode                    = False
+        self.__legacyMode                           = False
+        self.__legacyTcpForwarding                  = ["tcp", "", ""]
+        self.__legacyUdpForwarding                  = ["udp", "", ""]
+
         self.__urls                                 = []
         self.authentication_messages                = []
-        self.tunnel_statup_messages                 = []
+        self.tunnel_startup_messages                 = []
         self.server_address                         = server_address
-
-        if tcp_forward_to is not None:
-            self.tcp_forward_to                     = tcp_forward_to
-        if udp_forward_to is not None:
-            self.udp_forward_to                     = udp_forward_to
-        if type != "":
-            self.type                               = type
 
         self.__eventHandler                         = eventClass(self)
 
@@ -390,53 +392,52 @@ class Tunnel:
         self.__setup_callbacks()
 
     def __setup_callbacks(self):
-        # print("Setting up callback")
-        if not core.pinggy_tunnel_set_on_connected_callback(self.__tunnelRef, self.__connected_cb, None):
-            print(f"Could not setup callback for `pinggy_set_connected_callback`")
-        if not core.pinggy_tunnel_set_on_authenticated_callback(self.__tunnelRef, self.__authenticated_cb, None):
-            print(f"Could not setup callback for `pinggy_set_authenticated_callback`")
-        if not core.pinggy_tunnel_set_on_authentication_failed_callback(self.__tunnelRef, self.__authentication_failed_cb, None):
-            print(f"Could not setup callback for `pinggy_set_authenticationFailed_callback`")
-        if not core.pinggy_tunnel_set_on_primary_forwarding_succeeded_callback(self.__tunnelRef, self.__primary_forwarding_succeeded_cb, None):
-            print(f"Could not setup callback for `pinggy_tunnel_set_primary_forwarding_succeeded_callback`")
-        if not core.pinggy_tunnel_set_on_primary_forwarding_failed_callback(self.__tunnelRef, self.__primary_forwarding_failed_cb, None):
-            print(f"Could not setup callback for `pinggy_tunnel_set_primary_forwarding_failed_callback`")
+        if not core.pinggy_tunnel_set_on_tunnel_established_callback(self.__tunnelRef, self.__tunnel_established_cb, None):
+            logger.error(f"Could not setup callback for `pinggy_tunnel_set_on_tunnel_established_callback`")
+        if not core.pinggy_tunnel_set_on_tunnel_failed_callback(self.__tunnelRef, self.__tunnel_failed_cb, None):
+            logger.error(f"Could not setup callback for `pinggy_tunnel_set_on_tunnel_failed_callback`")
         if not core.pinggy_tunnel_set_on_additional_forwarding_succeeded_callback(self.__tunnelRef, self.__additional_forwarding_succeeded_cb, None):
-            print(f"Could not setup callback for `pinggy_tunnel_set_additional_forwarding_succeeded_callback`")
+            logger.error(f"Could not setup callback for `pinggy_tunnel_set_additional_forwarding_succeeded_callback`")
         if not core.pinggy_tunnel_set_on_additional_forwarding_failed_callback(self.__tunnelRef, self.__additional_forwarding_failed_cb, None):
-            print(f"Could not setup callback for `pinggy_tunnel_set_additional_forwarding_failed_callback`")
+            logger.error(f"Could not setup callback for `pinggy_tunnel_set_additional_forwarding_failed_callback`")
+        if not core.pinggy_tunnel_set_on_forwardings_changed_callback(self.__tunnelRef, self.__forwarding_changed_cb, None):
+            logger.error(f"Could not setup callback for `pinggy_tunnel_set_on_forwardings_changed_callback`")
         if not core.pinggy_tunnel_set_on_disconnected_callback(self.__tunnelRef, self.__disconnected_cb, None):
-            print(f"Could not setup callback for `pinggy_set_disconnected_callback`")
+            logger.error(f"Could not setup callback for `pinggy_set_disconnected_callback`")
         if not core.pinggy_tunnel_set_on_will_reconnect_callback(self.__tunnelRef, self.__will_reconnect_cb, None):
-            print(f"Could not setup callback for `pinggy_tunnel_set_on_will_reconnect_callback`")
+            logger.error(f"Could not setup callback for `pinggy_tunnel_set_on_will_reconnect_callback`")
         if not core.pinggy_tunnel_set_on_reconnecting_callback(self.__tunnelRef, self.__reconnecting_cb, None):
-            print(f"Could not setup callback for `pinggy_tunnel_set_on_reconnecting_callback`")
+            logger.error(f"Could not setup callback for `pinggy_tunnel_set_on_reconnecting_callback`")
         if not core.pinggy_tunnel_set_on_reconnection_completed_callback(self.__tunnelRef, self.__reconnection_completed_cb, None):
-            print(f"Could not setup callback for `pinggy_tunnel_set_on_reconnection_completed_callback`")
+            logger.error(f"Could not setup callback for `pinggy_tunnel_set_on_reconnection_completed_callback`")
         if not core.pinggy_tunnel_set_on_reconnection_failed_callback(self.__tunnelRef, self.__reconnection_failed_cb, None):
-            print(f"Could not setup callback for `pinggy_tunnel_set_on_reconnection_failed_callback`")
+            logger.error(f"Could not setup callback for `pinggy_tunnel_set_on_reconnection_failed_callback`")
         if not core.pinggy_tunnel_set_on_usage_update_callback(self.__tunnelRef, self.__usage_update_cb, None):
-            print(f"Could not setup callback for `pinggy_tunnel_set_on_usage_update_callback`")
+            logger.error(f"Could not setup callback for `pinggy_tunnel_set_on_usage_update_callback`")
         if not core.pinggy_tunnel_set_on_tunnel_error_callback(self.__tunnelRef, self.__tunnel_error_cb, None):
-            print(f"Could not setup callback for `pinggy_set_tunnel_error_callback`")
+            logger.error(f"Could not setup callback for `pinggy_set_tunnel_error_callback`")
         if not core.pinggy_tunnel_set_on_new_channel_callback(self.__tunnelRef, self.__new_channel_cb, None):
-            print(f"Could not setup callback for `pinggy_tunnel_set_new_channel_callback`")
+            logger.error(f"Could not setup callback for `pinggy_tunnel_set_new_channel_callback`")
 
 
     def __del__(self): #TODO stop tunnel if it is not already
-        if self.__configRef is not None:
-            core.pinggy_free_ref(self.__configRef)
-        if self.__tunnelRef:
-            if core.pinggy_free_ref(self.__tunnelRef) == 0:
-                print("Could not free")
-            self.__tunnelRef = 0
+        try:
+            if self.__configRef:
+                core.pinggy_free_ref(self.__configRef)
+                self.__configRef = 0
+            if self.__tunnelRef:
+                if core.pinggy_free_ref(self.__tunnelRef) == 0:
+                    logger.error("Could not free")
+                self.__tunnelRef = 0
+        except Exception:
+            pass
 
     def start_with_c(self):
         """
         ** DO NOT USE THIS METHOD **
         """
         self.__editableConfig = False
-        print("Kindly don't use this method")
+        logger.warning("Kindly don't use this method")
         core.pinggy_tunnel_start(self.__tunnelRef)
 
     def start(self, thread=False):
@@ -448,51 +449,27 @@ class Tunnel:
             thread (bool): Whether to run the start tunnel in a new thread. Default is False
         """
         self.__editableConfig = False
-        self.__auto = True
-        if not self.__connected:
-            self.__connect_tunnel()
-        if self.__authenticated and not self.__tunnel_started:
-            self.__internal_request_primary_forwarding()
-        if self.__tunnel_started:
-            if thread:
-                t = threading.Thread(target=self.__start_serving)
-                self.__thread = t
-                t.start()
-            else:
-                self.__start_serving()
+        if thread:
+            t = threading.Thread(target=self.__start_resume)
+            self.__thread = t
+            t.start()
+        else:
+            self.__start_resume()
 
-    def connect(self):
-        """
-        Connect the tunnel with the server and authenticate it self. It returns true on success.
-
-        If this step fails, no futher step steps can be continued.
-
-        Returns:
-            bool: whether authentication done sucessfully or not.
-        """
-
-        if self.__auto:
-            raise Exception("Not permitted as tunnel started with `start` method")
-
-        return self.__connect_tunnel()
-
-    def __connect_tunnel(self):
-        if self.__connected:
-            raise Exception("You call connect only once")
-        locked = False
+    def __start_resume(self):
         if not self.__lock.acquire(False):
             raise Exception("Synchronization error")
-        locked = True
+        ret = core.pinggy_tunnel_start_non_blocking(self.__tunnelRef)
 
-        self.__editableConfig = False
-        self.__connected = True
-        self.__resumable = core.pinggy_tunnel_connect(self.__tunnelRef)
+        while ret:
+            ret = core.pinggy_tunnel_resume(self.__tunnelRef)
 
-        if self.__resumable:
-            self.__resume()
-        if locked:
-            self.__lock.release()
-        return self.__authenticated
+        self.__lock.release()
+        return ret
+
+    def connect(self):
+        logger.warning("The method 'connect' has been removed and it is NO-OP now. Use start instead.")
+        return True
 
     def stop(self):
         """Stops the running tunnel."""
@@ -520,39 +497,157 @@ class Tunnel:
         return core.pinggy_tunnel_start_web_debugging(self.__tunnelRef, port)
 
     def request_primary_forwarding(self):
-        """
-        Request to start the default forwarding. Once suceeded, user can get
-        the urls and tunnel starts accepting requests.
-        """
+        logger.warning("The method 'request_primary_forwarding' has been removed and it is NO-OP now. Use start instead.")
+        return True
 
-        if self.__auto:
-            raise Exception("Not permitted as tunnel started with `start` method")
-
-        return self.__internal_request_primary_forwarding()
-
-    def __internal_request_primary_forwarding(self):
-        if not self.__authenticated:
-            raise Exception("Connect the tunnel first")
-        locked = False
-        if not self.__lock.acquire(False):
-            raise Exception("Synchronization error")
-        locked = True
-        self.__continue_polling = True
-        core.pinggy_tunnel_request_primary_forwarding(self.__tunnelRef)
-        self.__resume()
-        if locked:
-            self.__lock.release()
-        return self.__tunnel_started
-
-    def request_additional_forwarding(self, bindAddr, forwardTo):
+    def request_additional_forwarding(self, bindAddr, forwardTo, forwardingType="http"):
         """
         Once primary forwarding is done, user can request additional forwarding for other ports.
 
         More details at: https://pinggy.io/docs/http_tunnels/multi_port_forwarding/.
         """
-        bindAddr = bindAddr if isinstance(bindAddr, bytes) else bindAddr.encode('utf-8')
-        forwardTo = forwardTo if isinstance(forwardTo, bytes) else forwardTo.encode('utf-8')
-        core.pinggy_tunnel_request_additional_forwarding(self.__tunnelRef, bindAddr, forwardTo)
+        core.pinggy_tunnel_request_additional_forwarding(self.__tunnelRef, bindAddr, forwardTo, forwardingType)
+
+    def add_callback(self, event_name, callback):
+        """
+        Register a function to be called for a tunnel event.
+
+        Equivalent to setting the corresponding `on_<event_name>` property,
+        but useful when the event name is only known at runtime.
+
+        The callback is installed directly on the underlying event handler
+        instance, so it overrides the matching method even when a custom
+        handler class was passed via `eventClass`. The callback receives
+        the same positional arguments as the corresponding `BaseTunnelHandler`
+        method (no `self`).
+
+        Args:
+            event_name (str): Name of the event method to override.
+            callback (callable): Function called when the event fires.
+
+        Example:
+            >>> tunnel.add_callback("tunnel_established", lambda urls: print(urls))
+            >>> tunnel.on_disconnected = lambda msg: print("bye:", msg)
+        """
+        setattr(self.__eventHandler, event_name, callback)
+
+    # ------------------------------------------------------------------
+    # Per-event callback properties.
+    #
+    # Each property reads/writes the matching method on the underlying
+    # event-handler instance. Setting one shadows the BaseTunnelHandler
+    # default (or whatever a custom eventClass provided); reading returns
+    # the currently bound function — either the user's callback or the
+    # default handler method.
+    # ------------------------------------------------------------------
+
+    @property
+    def on_tunnel_established(self):
+        """Callback fired when forwardings are successfully established."""
+        return self.__eventHandler.tunnel_established
+
+    @on_tunnel_established.setter
+    def on_tunnel_established(self, callback):
+        self.__eventHandler.tunnel_established = callback
+
+    @property
+    def on_tunnel_failed(self):
+        """Callback fired when forwardings could not be established."""
+        return self.__eventHandler.tunnel_failed
+
+    @on_tunnel_failed.setter
+    def on_tunnel_failed(self, callback):
+        self.__eventHandler.tunnel_failed = callback
+
+    @property
+    def on_additional_forwarding_succeeded(self):
+        """Callback fired when an additional forwarding completes."""
+        return self.__eventHandler.additional_forwarding_succeeded
+
+    @on_additional_forwarding_succeeded.setter
+    def on_additional_forwarding_succeeded(self, callback):
+        self.__eventHandler.additional_forwarding_succeeded = callback
+
+    @property
+    def on_additional_forwarding_failed(self):
+        """Callback fired when an additional forwarding fails."""
+        return self.__eventHandler.additional_forwarding_failed
+
+    @on_additional_forwarding_failed.setter
+    def on_additional_forwarding_failed(self, callback):
+        self.__eventHandler.additional_forwarding_failed = callback
+
+    @property
+    def on_forwardings_changed(self):
+        """Callback fired when the forwarding list changes."""
+        return self.__eventHandler.forwardings_changed
+
+    @on_forwardings_changed.setter
+    def on_forwardings_changed(self, callback):
+        self.__eventHandler.forwardings_changed = callback
+
+    @property
+    def on_disconnected(self):
+        """Callback fired when the tunnel is disconnected by the server."""
+        return self.__eventHandler.disconnected
+
+    @on_disconnected.setter
+    def on_disconnected(self, callback):
+        self.__eventHandler.disconnected = callback
+
+    @property
+    def on_tunnel_error(self):
+        """Callback fired on tunnel errors (recoverable or not)."""
+        return self.__eventHandler.tunnel_error
+
+    @on_tunnel_error.setter
+    def on_tunnel_error(self, callback):
+        self.__eventHandler.tunnel_error = callback
+
+    @property
+    def on_will_reconnect(self):
+        """Callback fired before the SDK attempts to reconnect."""
+        return self.__eventHandler.will_reconnect
+
+    @on_will_reconnect.setter
+    def on_will_reconnect(self, callback):
+        self.__eventHandler.will_reconnect = callback
+
+    @property
+    def on_reconnecting(self):
+        """Callback fired for each reconnection attempt."""
+        return self.__eventHandler.reconnecting
+
+    @on_reconnecting.setter
+    def on_reconnecting(self, callback):
+        self.__eventHandler.reconnecting = callback
+
+    @property
+    def on_reconnection_completed(self):
+        """Callback fired when a reconnection succeeds."""
+        return self.__eventHandler.reconnection_completed
+
+    @on_reconnection_completed.setter
+    def on_reconnection_completed(self, callback):
+        self.__eventHandler.reconnection_completed = callback
+
+    @property
+    def on_reconnection_failed(self):
+        """Callback fired after the SDK exhausts reconnection attempts."""
+        return self.__eventHandler.reconnection_failed
+
+    @on_reconnection_failed.setter
+    def on_reconnection_failed(self, callback):
+        self.__eventHandler.reconnection_failed = callback
+
+    @property
+    def on_usage_update(self):
+        """Callback fired when the server pushes a usage update."""
+        return self.__eventHandler.usage_update
+
+    @on_usage_update.setter
+    def on_usage_update(self, callback):
+        self.__eventHandler.usage_update = callback
 
     def start_usage_update(self):
         """
@@ -578,118 +673,85 @@ class Tunnel:
 
     @property
     def greeting_msgs(self):
+        """
+        Get the greeting msg for the tunnel. This can be retrieved only after tunnel establishment.
+        """
         msgs = core.pinggy_tunnel_get_greeting_msgs_len(self.__tunnelRef)
         if msgs == "" or msgs is None:
             return None
         return json.loads(msgs)
 
+    @property
+    def state(self) -> TunnelState:
+        """
+        libpinggy maintain states for each tunnels. Application can fetch these state for its own use.
+        """
+        c_state = core.pinggy_tunnel_get_state(self.__tunnelRef)
+        return TunnelState(c_state)
+
     def serve_tunnel(self):
-        """
-        Final method in the tunnel creation flow. It is again a blocking call.
-        **Deprecated**
-        """
-        self.__start_serving()
+        logger.warning("The method 'serve_tunnel' has been removed and it is equivalent to `start` now. Use start instead.")
+        self.start()
 
-    def __start_serving(self):
-        if not self.__tunnel_started:
-            raise Exception("Tunnel is not running")
-        locked = False
-        if not self.__lock.acquire(False):
-            raise Exception("Synchronization error")
-        locked = True
-        self.__continue_polling = True
-        self.__resume()
-        if locked:
-            self.__lock.release()
+    # All __func_* dispatchers below receive Python-native arguments
+    # (str / list[str] / int / etc.) — each cb_type built by
+    # core.__make_cb_type wraps its argument-conversion into the class's
+    # __new__, so `cb_type(py_func)` produces a callback whose Python
+    # side already sees decoded args. No manual decoding or array
+    # unpacking is needed here. Parameter names match the pinggy.h C
+    # typedef for each callback.
 
-    def __resume(self):
-        if not self.__resumable:
-            raise Exception("Tunnel is not resumable")
-        while self.__continue_polling:
-            ret = core.pinggy_tunnel_resume(self.__tunnelRef)
-            if ret:
-                continue
-            self.__resumable = False
-            return
-
-    def __func_connected(self, userdata, ref):
-        self.__eventHandler.connected()
-        # print(f"AuthenticatedFunc: Reference: {ref}")
-
-    def __func_authenticated(self, userdata, ref):
-        self.__authenticated = True
-        self.__continue_polling = False
-        self.__eventHandler.authenticated()
-        # print(f"AuthenticatedFunc: Reference: {ref}")
-
-    def __func_authentication_failed(self, userdata, ref, l, arr):
-        self.__continue_polling = False
-        self.authentication_messages = core._getStringArray(l, arr)
-        self.__eventHandler.authentication_failed(core._getStringArray(l, arr))
-        # print(f"AuthenticationFailedFunc: Reference: {ref} {l} {arr} {core._getStringArray(l, arr)}")
-
-    def __func_primary_forwarding_succeeded(self, userdata, ref, l, arr):
-        self.tunnel_statup_messages = core._getStringArray(l, arr)
+    def __func_tunnel_established(self, user_data, tunnel_ref, urls):
+        self.tunnel_startup_messages = urls
         self.__continue_polling = False
         self.__tunnel_started = True
-        self.__urls = core._getStringArray(l, arr)
-        self.__eventHandler.primary_forwarding_succeeded()
-        # print(f"PrimaryForwardingSucceeded: Reference: {ref} {l} {arr} {core._getStringArray(l, arr)}")
+        self.__urls = urls
+        self.__eventHandler.tunnel_established(urls)
 
-    def __func_primary_forwarding_failed(self, userdata, ref, msg):
-        self.tunnel_statup_messages = [msg.decode('utf-8')]
+    def __func_tunnel_failed(self, user_data, tunnel_ref, msg):
+        self.tunnel_startup_messages = [msg]
         self.__continue_polling = False
-        self.__eventHandler.primary_forwarding_failed(msg)
-        # print(f"PrimaryForwardingFailed: Reference: {ref} {msg}")
+        self.__eventHandler.tunnel_failed(msg)
 
-    def __func_additional_forwarding_succeeded(self, userdata, ref, bindAddr, forwardTo):
-        bindAddr = bindAddr.decode('utf-8')
-        forwardTo = forwardTo.decode('utf-8')
-        self.__eventHandler.additional_forwarding_succeeded(bindAddr, forwardTo)
-        # print(f"RemoteFowardingSucceeded: Reference: {ref} `{bindAddr}` `{forwardTo}`")
+    def __func_additional_forwarding_succeeded(self, user_data, tunnel_ref, bind_addr, forward_to_addr, forwarding_type):
+        self.__eventHandler.additional_forwarding_succeeded(bind_addr, forward_to_addr, forwarding_type)
 
-    def __func_additional_forwarding_failed(self, userdata, ref, bindAddr, forwardTo, err):
-        bindAddr = bindAddr.decode('utf-8')
-        forwardTo = forwardTo.decode('utf-8')
-        err = err.decode('utf-8')
-        self.__eventHandler.additional_forwarding_failed(bindAddr, forwardTo, err)
-        # print(f"RemoteFowardingSucceeded: Reference: {ref} `{bindAddr}` `{forwardTo}` `{err}`")
+    def __func_additional_forwarding_failed(self, user_data, tunnel_ref, bind_addr, forward_to_addr, forwarding_type, error):
+        self.__eventHandler.additional_forwarding_failed(bind_addr, forward_to_addr, forwarding_type, error)
 
-    def __func_disconnected(self, userdata, ref, msg, l, arr):
+    def __func_forwardings_changed(self, user_data, tunnel_ref, url_map):
+        self.__eventHandler.forwardings_changed(url_map)
+
+    def __func_disconnected(self, user_data, tunnel_ref, error, msg):
         self.__continue_polling = False
         self.__resumable = False
-        self.__eventHandler.disconnected(msg.decode('utf-8'))
-        # print(f"DisconnectedFunc: Reference: {ref} {msg} {l} {arr} {core._getStringArray(l, arr)}")
+        self.__eventHandler.disconnected(error)
 
-    def __func_tunnel_error(self, userdata, ref, errorNo, msg, recoverable):
-        # print(f"DisconnectedFunc: Reference: {ref} {msg} {l} {arr} {core._getStringArray(l, arr)}")
-        self.__eventHandler.tunnel_error(errorNo, msg, recoverable)
+    def __func_tunnel_error(self, user_data, tunnel_ref, error_no, error, recoverable):
+        self.__eventHandler.tunnel_error(error_no, error, recoverable)
 
-    def __func_new_channel(self, userdata, ref, chan_ref):
+    def __func_new_channel(self, user_data, tunnel_ref, channel_ref):
         if not self.__eventHandler.handle_channel():
             return False
-        channel = Channel(chan_ref)
+        channel = Channel(channel_ref)
         self.__eventHandler.new_channel(channel)
         return True
 
-    def __func_will_reconnect(self, user_data, ref, error, l, arr):
-        msgs = core._getStringArray(l, arr)
-        self.__eventHandler.will_reconnect(msgs)
+    def __func_will_reconnect(self, user_data, tunnel_ref, error, messages):
+        self.__eventHandler.will_reconnect(messages)
 
-    def __func_reconnecting(self, user_data, ref, retry_cnt):
+    def __func_reconnecting(self, user_data, tunnel_ref, retry_cnt):
         self.__eventHandler.reconnecting(retry_cnt)
 
-    def __func_reconnection_completed(self, user_data, ref, l, arr):
-        self.__urls = core._getStringArray(l, arr)
+    def __func_reconnection_completed(self, user_data, tunnel_ref, urls):
+        self.__urls = urls
         self.__eventHandler.reconnection_completed()
 
-    def __func_reconnection_failed(self, user_data, ref, retry_cnt):
+    def __func_reconnection_failed(self, user_data, tunnel_ref, retry_cnt):
         self.__eventHandler.reconnection_failed(retry_cnt)
 
-    def __func_usage_update(self, user_data, ref, usages):
-        usages = usages.decode('utf-8')
-        usages = json.loads(usages)
-        self.__eventHandler.usage_update(usages)
+    def __func_usage_update(self, user_data, tunnel_ref, usages):
+        self.__eventHandler.usage_update(json.loads(usages))
 
 
     #////////////////////
@@ -704,141 +766,114 @@ class Tunnel:
         str: pinggy server address. The default server address is `a.pinggy.io`. You can also add the
             port as follows: `a.pinggy.io:443`.
         """
-        return core.pinggy_config_get_server_address(self.__configRef)
+        return core.pinggy_config_get_server_address_len(self.__configRef)
+
+    @server_address.setter
+    def server_address(self, val):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        core.pinggy_config_set_server_address(self.__configRef, val)
 
     @property
     def token(self):
         """str: Token for the tunnel. One can it from `dashboard.pinggy.io`"""
-        return core.pinggy_config_get_token(self.__configRef)
+        return core.pinggy_config_get_token_len(self.__configRef)
+
+    @token.setter
+    def token(self, val):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        core.pinggy_config_set_token(self.__configRef, val)
+
+    @property
+    def forwardings(self):
+        """
+        Retrieves the forwarding rules (as a JSON string) from the tunnel config.
+        """
+        return core.pinggy_config_get_forwardings_len(self.__configRef)
 
     @property
     def type(self):
-        """
-        str: Tunnel type or mode. This is only for TCP type. So, the accepted values are 'http',
-            'tcp', 'tls' and 'tlstcp'. Default is 'http'.
-        """
-        return core.pinggy_config_get_type(self.__configRef)
+        return self.__legacyTcpForwarding[0]
+
+    @type.setter
+    def type(self, val):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        if self.__newForwardingMode:
+            raise Exception("You cannot combine lagacy mode and none legacy mode")
+        self.__legacyMode = True
+        self.__legacyTcpForwarding[0] = val
+        self.__set_legacy_forwardings()
 
     @property
     def udp_type(self):
-        """
-        str: Tunnel type or mode. This is only for UDP type. currently, only accepted value is 'udp'.
-        """
-        return core.pinggy_config_get_udp_type(self.__configRef)
+        return self.__legacyUdpForwarding[0]
+
+    @udp_type.setter
+    def udp_type(self, val):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        if self.__newForwardingMode:
+            raise Exception("You cannot combine lagacy mode and none legacy mode")
+        self.__legacyMode = True
+        self.__legacyUdpForwarding[0] = val
+        self.__set_legacy_forwardings()
 
     @property
     def tcp_forward_to(self):
-        """
-        str: local server address for default or primary forward. It is equivalent to -R option in ssh
+        return self.__legacyTcpForwarding[2]
 
-        Example:
-            If local server is running at port 8080. Forward request to it by setting
+    def __set_legacy_forwardings(self):
+        core.pinggy_config_reset_forwardings(self.__configRef)
+        if self.__legacyTcpForwarding[2] != "":
+            core.pinggy_config_add_forwarding(self.__configRef, *self.__legacyTcpForwarding)
+        if self.__legacyUdpForwarding[2] != "":
+            core.pinggy_config_add_forwarding(self.__configRef, *self.__legacyUdpForwarding)
 
-            >>> tunnel.tcp_forward_to = "localhost:8080"
-        """
-        return core.pinggy_config_get_tcp_forward_to(self.__configRef)
+    @tcp_forward_to.setter
+    def tcp_forward_to(self, val):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        if self.__newForwardingMode:
+            raise Exception("You cannot combine lagacy mode and none legacy mode")
+        self.__legacyMode = True
+        if type(val) == int:
+            val = f"localhost:{val}"
+        self.__legacyTcpForwarding[2] = val
+        self.__set_legacy_forwardings()
 
     @property
     def udp_forward_to(self):
-        """
-        str: Similar to `tcp_forward_to`. However, it is for udp tunnel.
-        """
-        return core.pinggy_config_get_udp_forward_to(self.__configRef)
+        return self.__legacyUdpForwarding[2]
+
+    @udp_forward_to.setter
+    def udp_forward_to(self, val):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        if self.__newForwardingMode:
+            raise Exception("You cannot combine lagacy mode and none legacy mode")
+        self.__legacyMode = True
+        if type(val) == int:
+            val = f"localhost:{val}"
+        self.__legacyUdpForwarding[2] = val
+        self.__set_legacy_forwardings()
 
     @property
     def force(self):
         """bool: force flag in tunnel that terminates any existing tunnel with the same token."""
         return core.pinggy_config_get_force(self.__configRef)
 
-    @property
-    def argument(self):
-        """str: tunnel arguments for header manipulation and others."""
-        return core.pinggy_config_get_argument_len(self.__configRef)
-
-    @property
-    def advanced_parsing(self):
-        """
-        keep it true. Free tunnels won't work without it.
-        """
-        return core.pinggy_config_get_advanced_parsing(self.__configRef)
-
-    @property
-    def ssl(self):
-        return core.pinggy_config_get_ssl(self.__configRef)
-
-    @property
-    def sni_server_name(self):
-        return core.pinggy_config_get_sni_server_name(self.__configRef)
-
-    @property
-    def insecure(self):
-        return core.pinggy_config_get_insecure(self.__configRef)
-
-    @property
-    def auto_reconnect(self):
-        return core.pinggy_config_get_auto_reconnect(self.__configRef)
-
-    @property
-    def max_reconnect_attempts(self):
-        return core.pinggy_config_get_max_reconnect_attempts(self.__configRef)
-
-    @property
-    def reconnect_interval(self):
-        return core.pinggy_config_get_reconnect_interval(self.__configRef)
-
-    #////////////////////////////////
-
-    @server_address.setter
-    def server_address(self, val):
-        if not self.__editableConfig:
-            raise Exception("Tunnel is already connected, no modification allowed")
-        val = val if isinstance(val, bytes) else val.encode("utf-8")
-        core.pinggy_config_set_server_address(self.__configRef, val)
-
-    @token.setter
-    def token(self, val):
-        if not self.__editableConfig:
-            raise Exception("Tunnel is already connected, no modification allowed")
-        val = val if isinstance(val, bytes) else val.encode("utf-8")
-        core.pinggy_config_set_token(self.__configRef, val)
-
-    @type.setter
-    def type(self, val):
-        if not self.__editableConfig:
-            raise Exception("Tunnel is already connected, no modification allowed")
-        val = val if isinstance(val, bytes) else val.encode("utf-8")
-        core.pinggy_config_set_type(self.__configRef, val)
-
-    @udp_type.setter
-    def udp_type(self, val):
-        if not self.__editableConfig:
-            raise Exception("Tunnel is already connected, no modification allowed")
-        val = val if isinstance(val, bytes) else val.encode("utf-8")
-        core.pinggy_config_set_udp_type(self.__configRef, val)
-
-    @tcp_forward_to.setter
-    def tcp_forward_to(self, val):
-        if not self.__editableConfig:
-            raise Exception("Tunnel is already connected, no modification allowed")
-        if type(val) == int:
-            val = f"localhost:{val}"
-        val = val if isinstance(val, bytes) else val.encode("utf-8")
-        core.pinggy_config_set_tcp_forward_to(self.__configRef, val)
-
-    @udp_forward_to.setter
-    def udp_forward_to(self, val):
-        if not self.__editableConfig:
-            raise Exception("Tunnel is already connected, no modification allowed")
-        if type(val) == int:
-            val = f"localhost:{val}"
-        val = val if isinstance(val, bytes) else val.encode("utf-8")
-        core.pinggy_config_set_udp_forward_to(self.__configRef, val)
-
     @force.setter
     def force(self, val):
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
         core.pinggy_config_set_force(self.__configRef, val)
+
+    @property
+    def argument(self):
+        """str: tunnel arguments for header manipulation and others."""
+        return core.pinggy_config_get_argument_len(self.__configRef)
 
     @argument.setter
     def argument(self, val: str):
@@ -850,11 +885,25 @@ class Tunnel:
 
         core.pinggy_config_set_argument(self.__configRef, val)
 
+    @property
+    def advanced_parsing(self):
+        """
+        keep it true. Free tunnels won't work without it.
+        """
+        return core.pinggy_config_get_advanced_parsing(self.__configRef)
+
     @advanced_parsing.setter
     def advanced_parsing(self, val):
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
         core.pinggy_config_set_advanced_parsing(self.__configRef, val)
+
+    @property
+    def ssl(self):
+        """
+        Keep it true. Production tunnel doesn't works without ssl.
+        """
+        return core.pinggy_config_get_ssl(self.__configRef)
 
     @ssl.setter
     def ssl(self, val):
@@ -862,12 +911,25 @@ class Tunnel:
             raise Exception("Tunnel is already connected, no modification allowed")
         core.pinggy_config_set_ssl(self.__configRef, val)
 
+    @property
+    def sni_server_name(self):
+        """
+        Do not modify unless instructed by the pinggy developers.
+        """
+        return core.pinggy_config_get_sni_server_name(self.__configRef)
+
     @sni_server_name.setter
     def sni_server_name(self, val):
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
-        val = val if isinstance(val, bytes) else val.encode("utf-8")
         core.pinggy_config_set_sni_server_name(self.__configRef, val)
+
+    @property
+    def insecure(self):
+        """
+        Keep it true. Production tunnel doesn't works without it.
+        """
+        return core.pinggy_config_get_insecure(self.__configRef)
 
     @insecure.setter
     def insecure(self, val):
@@ -875,19 +937,141 @@ class Tunnel:
             raise Exception("Tunnel is already connected, no modification allowed")
         core.pinggy_config_set_insecure(self.__configRef, val)
 
+    @property
+    def auto_reconnect(self):
+        """
+        Set auto_reconnecting tunnel. It is required for long running tunnel.
+        """
+        return core.pinggy_config_get_auto_reconnect(self.__configRef)
+
     @auto_reconnect.setter
     def auto_reconnect(self, val):
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
         core.pinggy_config_set_auto_reconnect(self.__configRef, val)
 
+    @property
+    def max_reconnect_attempts(self):
+        """
+        Set number of connection attempt before it give up. Setting this to `0` means infinite attempts.
+        """
+        return core.pinggy_config_get_max_reconnect_attempts(self.__configRef)
+
     @max_reconnect_attempts.setter
     def max_reconnect_attempts(self, val):
         return core.pinggy_config_set_max_reconnect_attempts(self.__configRef, val)
 
+    @property
+    def reconnect_interval(self):
+        """
+        Set the interval in seconds between two reconnection attempts.
+        """
+        return core.pinggy_config_get_reconnect_interval(self.__configRef)
+
     @reconnect_interval.setter
     def reconnect_interval(self, val):
         return core.pinggy_config_set_reconnect_interval(self.__configRef, val)
+
+    #////////////////////////////////
+
+    @forwardings.setter
+    def forwardings(self, forwardings: int|str|list[dict]):
+        """
+        Sets multiple forwarding rules for the tunnel configuration.
+
+        This function allows you to define multiple forwarding rules either as a single
+        simplified forwarding string (similar to `pinggy_config_add_forwarding_simple`)
+        or as a JSON array of forwarding objects.
+
+        If `forwardings` is a single string, it should follow the format
+        `[forwarding_type://][localhost:]port`.
+
+        If `forwardings` is a list of dictionaries, each dictionary should define a
+        forwarding rule with the following properties:
+        - `type`: (Optional) The type of forwarding (e.g., "http", "tcp", "udp", "tls", "tlstcp").
+          Defaults to "http" if not specified.
+        - `listenAddress`: (Optional) The remote address to bind to. Format: `[host][:port]`.
+          An empty string or undefined means the server will assign a default binding.
+          The hostname is ignored for TCP and UDP tunnels. Any schema provided will be ignored.
+        - `address`: The local address to forward to. Format: `[protocol://][host]:port`.
+          The `protocol` is primarily used to determine if `local_server_tls` should be
+          enabled for this specific rule (e.g., `https://`). It is ignored otherwise.
+
+        Example:
+            >>> tunnel.forwardings = [{"type": "tcp", "address": "localhost:22"}] # Forwards connections to local SSH server.
+            >>> tunnel.forwardings = [
+            ...     {"address": "localhost:8000", "listenAddress": "your-registered-custom-domain.com"},
+            ...     {"address": "localhost:4000", "listenAddress": "your-registered-subdomain.pinggy.io"}
+            ... ] # Forwards requests to a custom domain to localhost:8000 and to a subdomain to localhost:4000.
+        """
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        if self.__legacyMode:
+            raise Exception("You cannot combine lagacy mode and none legacy mode")
+        self.__newForwardingMode = True
+        if type(forwardings) == int:
+            forwardings = "localhost:"+str(forwardings)
+        if isinstance(forwardings, list):
+            forwardings = json.dumps(forwardings)
+        core.pinggy_config_set_forwardings(self.__configRef, forwardings)
+
+    @forwardings.deleter
+    def forwardings(self):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        if self.__legacyMode:
+            raise Exception("You cannot combine lagacy mode and none legacy mode")
+        self.__newForwardingMode = True
+        core.pinggy_config_reset_forwardings(self.__configRef)
+
+    def add_forwarding(self, address: str, type: str|None = None, listen_address: str|None = None):
+        """
+        Adds a new forwarding rule to the tunnel configuration.
+
+        This function allows you to specify how incoming connections to a remote `listen_address`
+        on the Pinggy server should be forwarded to a local `address` on your local machine.
+
+        Args:
+            address (str): The local address to forward to.
+                    This can be a URL (e.g., "http://localhost:3000"), an IP address
+                    (e.g., "127.0.0.1:8000"), or just a port (e.g., ":5000").
+                    If the schema (e.g., "http://") and host are omitted, "localhost"
+                    is assumed. For example, ":3000" becomes "http://localhost:3000"
+                    for HTTP forwarding.
+                    If `type` is "http" and `address` specifies an "https"
+                    schema (e.g., "https://localhost:443"), this implicitly enables
+                    `local_server_tls` for this specific forwarding rule.
+
+            type (str, optional): The type of forwarding.
+                    Valid types are "http", "tcp", "udp", "tls", "tlstcp".
+                    If an empty string or None is provided, "http" is assumed.
+
+            listen_address (str, optional): The remote address to bind to.
+                    This can be a domain name, a domain:port combination,
+                    or just a port. Examples: "example.pinggy.io",
+                    "example.pinggy.io:8080", ":80".
+                    If empty string or None, the server will assign a default binding.
+                    The hostname is ignored for TCP and UDP tunnels.
+                    Any schema provided will be ignored.
+
+        Examples:
+            >>> tunnel.add_forwarding(address="localhost:8000")
+        """
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        if self.__legacyMode:
+            raise Exception("You cannot combine lagacy mode and none legacy mode")
+        self.__newForwardingMode = True
+        if isinstance(address, int):
+            address = f"localhost:{address}"
+        if (type is None or type == "") and (listen_address is None or listen_address == ""):
+            core.pinggy_config_add_forwarding_simple(self.__configRef, address)
+        else:
+            if listen_address is None:
+                listen_address = ""
+            if type is None:
+                type = ""
+            core.pinggy_config_add_forwarding(self.__configRef, type, listen_address, address)
 
     #//////////////////////
 
@@ -988,8 +1172,6 @@ class Tunnel:
         core.pinggy_config_set_header_manipulations(self.__configRef, json.dumps(processedHm))
 
     def remove_header(self, header_name):
-        self.removeHeader(header_name)
-    def removeHeader(self, header_name):
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
         headermod = self.headermodification
@@ -997,8 +1179,6 @@ class Tunnel:
         self.headermodification = headermod
 
     def add_header(self, header_name, new_value):
-        self.addHeader(header_name, new_value)
-    def addHeader(self, header_name, new_value):
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
 
@@ -1007,8 +1187,6 @@ class Tunnel:
         self.headermodification = headermod
 
     def update_header(self, header_name, new_value):
-        self.updateHeader(header_name, new_value)
-    def updateHeader(self, header_name, new_value):
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
 
@@ -1031,6 +1209,46 @@ class Tunnel:
         if type(val) != str:
             raise Exception("Only string type allowed")
         core.pinggy_config_set_local_server_tls(self.__configRef, val)
+
+
+    @property
+    def webdebugger_port(self):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        addr = core.pinggy_config_get_webdebugger_addr_len(self.__configRef)
+        return int(addr.split(":")[1])
+
+    @webdebugger_port.setter
+    def webdebugger_port(self, val):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        return core.pinggy_config_set_webdebugger_addr(self.__configRef, "localhost:%s"%(val))
+
+
+    @property
+    def webdebugger_addr(self):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        return core.pinggy_config_get_webdebugger_addr_len(self.__configRef)
+
+    @webdebugger_addr.setter
+    def webdebugger_addr(self, val):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        return core.pinggy_config_set_webdebugger_addr(self.__configRef, val)
+
+
+    @property
+    def webdebugger(self):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        return core.pinggy_config_get_webdebugger(self.__configRef)
+
+    @webdebugger.setter
+    def webdebugger(self, val):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        return core.pinggy_config_set_webdebugger(self.__configRef, bool(val))
 
 
     @property
@@ -1092,32 +1310,6 @@ class Tunnel:
             raise Exception("Tunnel is already connected, no modification allowed")
         core.pinggy_config_set_reverse_proxy(self.__configRef, reverseproxy)
 
-    def __prepare_n_setargument(self):
-        argument = self.__prepare_argument()
-        core.pinggy_config_set_argument(self.__configRef, argument)
-
-
-def __start_tunnel(tun, webdebuggerport):
-
-    success = tun.connect()
-    if not success:
-        msg = tun.authentication_messages
-        if type(msg) == list:
-            msg = "\n".join(msg)
-        raise Exception("Connection Failed:\n" + msg)
-
-    success = tun.request_primary_forwarding()
-    if not success:
-        msg = tun.tunnel_statup_messages
-        if type(msg) == list:
-            msg = "\n".join(msg)
-        raise Exception("Connection Failed:\n" + msg)
-
-    tun.start(True)
-
-    if webdebuggerport > 0:
-        tun.start_web_debugging(webdebuggerport)
-
 
 def start_tunnel(
         forwardto: int|str = 80,
@@ -1129,14 +1321,14 @@ def start_tunnel(
         bearerauth:  list[str]|str|None = None,
         headermodification: list[str]|None = None,
         webdebuggerport: int = 0,
-        localservertls: str|bool = False,
         xff: bool = False,
         httpsonly: bool = False,
         fullrequesturl: bool = False,
         allowpreflight: bool = False,
         reverseproxy: bool = True,
         serveraddress: str = "a.pinggy.io:443",
-        udpforwardto: int | str = 0,
+        udpforwardto: int|str|None = None,
+        localservertls: str|bool = False,
         autoreconnect: bool = False,
         eventclass = BaseTunnelHandler
 ):
@@ -1145,8 +1337,10 @@ def start_tunnel(
 
     Args:
         forwardto: address of local server. Only port can be provided incase of local server. Example: 80, "localhost:80".
+                    The format is [schema://][localhost:]port. Schema can be one of `http`, `https`, `tcp`, `tls`, `tlstcp`, `udp`. Default is `http`.
+                    `https` means local server tls.
 
-        type: Type of the tunnel. values can be one of `http`, `tcp`, `tls`, `tlstcp`. `http` is the default value.
+        type: Type of tunnel. One of `http`, `tcp`, `tls`, `tlstcp`, `udp`. Default is `http`.
 
         token: User token. Get it from https://dashboard.pinggy.io
 
@@ -1180,7 +1374,8 @@ def start_tunnel(
 
         serveraddress: User can set the server address to which pinggy would connect. Default: `a.pinggy.io:443`.
 
-        udpforwardto: same as tcp forward to, however, it allows users to forward udp along with tcp. If user wants to forward only udp, use `start_udptunnel`.
+        udpforwardto: same as forwardto, however, it forwards a UDP destination alongside the primary forwarding.
+                    Useful when one tunnel needs to expose both TCP and UDP. Use `start_udptunnel` for udp-only tunnels.
 
         autoreconnect: automatically reconnects when tunnel failes. It happens silently. So, to detect reconnection, one need to override the event handler.
 
@@ -1191,8 +1386,6 @@ def start_tunnel(
         eventclass = BaseTunnelHandler
     tun = Tunnel(server_address=serveraddress, eventClass=eventclass)
 
-    tun.tcp_forward_to          = forwardto
-    tun.type                    = type
     tun.token                   = token
     tun.force                   = force
     try:
@@ -1201,8 +1394,14 @@ def start_tunnel(
     except:
         pass
 
-    if bool(udpforwardto):
-        tun.udp_forward_to = udpforwardto
+    if bool(forwardto):
+        if type in (None, "", "http"):
+            tun.add_forwarding(forwardto)
+        else:
+            tun.add_forwarding(forwardto, type=type)
+
+    if udpforwardto is not None:
+        tun.add_forwarding(udpforwardto, type="udp")
 
     if ipwhitelist is not None:
         tun.ipwhitelist = ipwhitelist
@@ -1223,8 +1422,10 @@ def start_tunnel(
     tun.fullrequesturl          = fullrequesturl
     tun.allowpreflight          = allowpreflight
     tun.reverseproxy            = reverseproxy
+    tun.webdebugger_port        = webdebuggerport
 
-    __start_tunnel(tun, webdebuggerport)
+    # __start_tunnel(tun, webdebuggerport)
+    tun.start(True)
 
     return tun
 
@@ -1262,10 +1463,9 @@ def start_udptunnel(
     if eventclass is None:
         eventclass = BaseTunnelHandler
 
-    tun = Tunnel(server_address=serveraddress)
+    tun = Tunnel(server_address=serveraddress, eventClass=eventclass)
 
-    tun.udp_forward_to          = forwardto
-    tun.type                    = "udp"
+    tun.add_forwarding(forwardto, type="udp")
     tun.token                   = token
     tun.force                   = force
     try:
@@ -1277,7 +1477,10 @@ def start_udptunnel(
     if ipwhitelist is not None:
         tun.ipwhitelist = ipwhitelist
 
-    __start_tunnel(tun, webdebuggerport)
+    tun.webdebugger_port        = webdebuggerport
+
+    # __start_tunnel(tun, webdebuggerport)
+    tun.start(True)
 
     return tun
 

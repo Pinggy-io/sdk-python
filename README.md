@@ -1,15 +1,22 @@
 # Python SDK for Pinggy
 
-Step by step procedure to build `.whl` files for Pinggy, dependening on different OS & Architecture.
+Step by step procedure to build `.whl` files for Pinggy, depending on different OS & Architecture.
+
+> Looking for usage docs? See [`PyPI_Description.md`](./PyPI_Description.md) for a quick start and [`API_DOC.md`](./API_DOC.md) for the full API reference.
 
 ## 📁 Directory Structure
 ```bash
 pinggy/
-├── core.py
 ├── __init__.py
-├── pinggy.h
-└── pylib.py
+├── __main__.py
+├── __version__.py
+├── core.py            # ctypes bindings for libpinggy
+├── loader.py          # native library loader
+├── pinggyexception.py # SDK exceptions
+└── pylib.py           # high-level Tunnel / BaseTunnelHandler API
 setup.py
+generate_docs.py
+syncVersionWithTag.py
 ```
 
 ## 🛠️ Requirements
@@ -61,16 +68,18 @@ pip install .
 
 ## Names
 
+Wheel filenames follow the pattern `pinggy-{version}-cp310-abi3-{plat_tag}.whl`:
+
 | PlatKey | Wheel | Desc |
 | --- | --- | --- |
-| macosx-universal | dev_pinggy-0.0.8-cp310-abi3-macosx_11_0_universal2.whl |   |
-| linux-aarch64    | dev_pinggy-0.0.8-cp310-abi3-manylinux_2_28_aarch64.whl |   |
-| linux-arm7l      | dev_pinggy-0.0.8-cp310-abi3-manylinux_2_28_armv7l.whl |   |
-| linux-i686       | dev_pinggy-0.0.8-cp310-abi3-manylinux_2_28_i686.whl |   |
-| linux-x86_64     | dev_pinggy-0.0.8-cp310-abi3-manylinux_2_28_x86_64.whl |   |
-| win-amd64        | dev_pinggy-0.0.8-cp310-abi3-win_amd64.whl |   |
-| win-arm64        | dev_pinggy-0.0.8-cp310-abi3-win_arm64.whl |   |
-| win32            | dev_pinggy-0.0.8-cp310-abi3-win32.whl |   |
+| macosx-universal | pinggy-0.1.0-cp310-abi3-macosx_11_0_universal2.whl |   |
+| linux-aarch64    | pinggy-0.1.0-cp310-abi3-manylinux_2_28_aarch64.whl |   |
+| linux-arm7l      | pinggy-0.1.0-cp310-abi3-manylinux_2_28_armv7l.whl |   |
+| linux-i686       | pinggy-0.1.0-cp310-abi3-manylinux_2_28_i686.whl |   |
+| linux-x86_64     | pinggy-0.1.0-cp310-abi3-manylinux_2_28_x86_64.whl |   |
+| win-amd64        | pinggy-0.1.0-cp310-abi3-win_amd64.whl |   |
+| win-arm64        | pinggy-0.1.0-cp310-abi3-win_arm64.whl |   |
+| win32            | pinggy-0.1.0-cp310-abi3-win32.whl |   |
 
 ## License
 

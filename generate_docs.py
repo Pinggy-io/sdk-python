@@ -35,21 +35,52 @@ def generate_markdown_doc_from_google_style(
 
         in_args_section = False
         in_returns_section = False
+        arg_indent = None  # baseline indent of param entries inside Args:
 
         for line in lines:
             # Handle Args section
             if line.startswith("Args:"):
                 in_args_section = True
+                arg_indent = None
                 formatted.append("**Arguments**:")
                 continue
             if in_args_section:
+                # Blank lines inside the Args block are just spacing — pass
+                # them through but don't end the section. The section ends
+                # when we hit an unindented non-empty line (a new section
+                # header like Returns: or free prose).
                 if line.strip() == "":
+                    formatted.append("")
+                    continue
+                if not (line.startswith(" ") or line.startswith("\t")):
                     in_args_section = False
+                    # fall through to normal handling
                 else:
-                    param, description = line.split(":", 1)
-                    param = param.strip()
-                    description = description.strip()
-                    formatted.append(f"- **{param}**: {description}")
+                    # A param entry looks like `name: description` or
+                    # `name (type): description`. Continuation lines may
+                    # have no colon, or may have a colon embedded in prose
+                    # (e.g. "Example: 80"). Distinguish them by indent: the
+                    # first param line establishes a baseline, and only
+                    # lines at that same indent count as new params.
+                    line_indent = len(line) - len(line.lstrip())
+                    head, sep, tail = line.partition(":")
+                    head_clean = head.strip()
+                    looks_like_param = (
+                        sep
+                        and head_clean
+                        and " " not in head_clean.split("(")[0].strip()
+                    )
+                    if looks_like_param and arg_indent is None:
+                        arg_indent = line_indent
+                    is_new_param = (
+                        looks_like_param
+                        and arg_indent is not None
+                        and line_indent <= arg_indent
+                    )
+                    if is_new_param:
+                        formatted.append(f"- **{head_clean}**: {tail.strip()}")
+                    else:
+                        formatted.append(f"  {line.strip()}")
                     continue
 
             # Handle Returns section
@@ -113,8 +144,31 @@ def generate_markdown_doc_from_google_style(
     print(f"✅ Markdown documentation written to: {output_file}")
 
 
+# Legacy surface kept for backwards compatibility but excluded from public docs.
+# These names are still callable so old user code does not crash, but the
+# documented flow is the new one (start_tunnel / Tunnel.start / forwardings /
+# add_forwarding) only.
+LEGACY_NAMES = [
+    # Legacy flow methods on Tunnel
+    "connect",
+    "request_primary_forwarding",
+    "serve_tunnel",
+    "start_with_c",
+    # Legacy forwarding properties on Tunnel
+    "tcp_forward_to",
+    "udp_forward_to",
+    "type",
+    "udp_type",
+    # Legacy callbacks on BaseTunnelHandler
+    "authenticated",
+    "authentication_failed",
+    "primary_forwarding_succeeded",
+    "primary_forwarding_failed",
+]
+
 generate_markdown_doc_from_google_style(
     module_name="pinggy",
     output_file="API_DOC.md",
-    skip_classes=["Channel"]
+    skip_classes=["Channel"],
+    skip_functions=LEGACY_NAMES,
 )
