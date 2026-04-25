@@ -508,6 +508,54 @@ class Tunnel:
         """
         core.pinggy_tunnel_request_additional_forwarding(self.__tunnelRef, bindAddr, forwardTo, forwardingType)
 
+    def add_callback(self, event_name, callback):
+        """
+        Register a function to be called for a tunnel event.
+
+        The supported event names match the methods on `BaseTunnelHandler`
+        (`tunnel_established`, `tunnel_failed`, `additional_forwarding_succeeded`,
+        `additional_forwarding_failed`, `forwardings_changed`, `disconnected`,
+        `tunnel_error`, `will_reconnect`, `reconnecting`,
+        `reconnection_completed`, `reconnection_failed`, `usage_update`).
+
+        The callback is installed directly on the underlying event handler
+        instance, so it overrides the matching method even when a custom
+        handler class was passed via `eventClass`. The callback receives
+        the same positional arguments as the corresponding `BaseTunnelHandler`
+        method (no `self`).
+
+        The same effect is available via attribute assignment:
+        `tunnel.on_<event_name> = fn`.
+
+        Args:
+            event_name (str): Name of the event method to override.
+            callback (callable): Function called when the event fires.
+
+        Example:
+            >>> tunnel.add_callback("tunnel_established", lambda urls: print(urls))
+            >>> tunnel.on_disconnected = lambda msg: print("bye:", msg)
+        """
+        setattr(self.__eventHandler, event_name, callback)
+
+    # `tunnel.on_<event> = fn` is sugar for `tunnel.add_callback("<event>", fn)`.
+    # The interception happens here so we don't have to enumerate event names
+    # as default attributes on Tunnel; everything still lives on the underlying
+    # handler instance.
+    def __setattr__(self, name, value):
+        if name.startswith("on_"):
+            handler = self.__dict__.get("_Tunnel__eventHandler")
+            if handler is not None:
+                setattr(handler, name[3:], value)
+                return
+        super().__setattr__(name, value)
+
+    def __getattr__(self, name):
+        if name.startswith("on_"):
+            handler = self.__dict__.get("_Tunnel__eventHandler")
+            if handler is not None:
+                return getattr(handler, name[3:])
+        raise AttributeError(name)
+
     def start_usage_update(self):
         """
         Start usage update. It would start puching update via the callback

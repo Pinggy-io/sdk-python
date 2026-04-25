@@ -303,5 +303,84 @@ class TestLegacyCompat(unittest.TestCase):
         self.assertEqual(params[: len(legacy_prefix)], legacy_prefix)
 
 
+class TestAddCallback(unittest.TestCase):
+    """
+    `Tunnel.add_callback` lets you wire a function for a tunnel event without
+    subclassing `BaseTunnelHandler`. It must also win over a method defined on
+    a custom handler class.
+    """
+
+    def test_add_callback_fires_when_event_dispatches(self):
+        tunnel = Tunnel()
+        captured = []
+        tunnel.add_callback("tunnel_failed", lambda msg: captured.append(msg))
+        # Drive the C-callback dispatcher directly with a fake msg.
+        tunnel._Tunnel__func_tunnel_failed(None, 0, b"oops")
+        self.assertEqual(captured, ["oops"])
+
+    def test_add_callback_overrides_eventclass_method(self):
+        class HandlerThatLogs(BaseTunnelHandler):
+            def __init__(self, tunnel):
+                super().__init__(tunnel)
+                self.calls = []
+
+            def disconnected(self, msg):
+                self.calls.append(("class", msg))
+
+        tunnel = Tunnel(eventClass=HandlerThatLogs)
+        captured = []
+        tunnel.add_callback("disconnected", lambda msg: captured.append(("cb", msg)))
+        tunnel._Tunnel__func_disconnected(None, 0, b"bye", 0, None)
+        # Only the callback should fire, not the class method.
+        self.assertEqual(captured, [("cb", "bye")])
+        self.assertEqual(tunnel._Tunnel__eventHandler.calls, [])
+
+    def test_add_callback_supports_multiple_events(self):
+        tunnel = Tunnel()
+        events = []
+        tunnel.add_callback("tunnel_failed", lambda msg: events.append(("failed", msg)))
+        tunnel.add_callback("disconnected", lambda msg: events.append(("disc", msg)))
+        tunnel._Tunnel__func_tunnel_failed(None, 0, b"a")
+        tunnel._Tunnel__func_disconnected(None, 0, b"b", 0, None)
+        self.assertEqual(events, [("failed", "a"), ("disc", "b")])
+
+    def test_on_event_attribute_assignment_routes_to_handler(self):
+        tunnel = Tunnel()
+        captured = []
+        tunnel.on_tunnel_failed = lambda msg: captured.append(msg)
+        tunnel._Tunnel__func_tunnel_failed(None, 0, b"oops")
+        self.assertEqual(captured, ["oops"])
+
+    def test_on_event_attribute_get_returns_installed_callback(self):
+        tunnel = Tunnel()
+        fn = lambda msg: None
+        tunnel.on_disconnected = fn
+        self.assertIs(tunnel.on_disconnected, fn)
+
+    def test_on_event_attribute_overrides_eventclass_method(self):
+        class HandlerThatLogs(BaseTunnelHandler):
+            def __init__(self, tunnel):
+                super().__init__(tunnel)
+                self.calls = []
+
+            def disconnected(self, msg):
+                self.calls.append(("class", msg))
+
+        tunnel = Tunnel(eventClass=HandlerThatLogs)
+        captured = []
+        tunnel.on_disconnected = lambda msg: captured.append(msg)
+        tunnel._Tunnel__func_disconnected(None, 0, b"bye", 0, None)
+        self.assertEqual(captured, ["bye"])
+        self.assertEqual(tunnel._Tunnel__eventHandler.calls, [])
+
+    def test_setting_non_on_attribute_still_works(self):
+        # Sanity: the __setattr__ shim must not break regular attribute use.
+        tunnel = Tunnel()
+        tunnel.token = "hello"
+        self.assertEqual(tunnel.token, "hello")
+        tunnel.scratch = 123  # arbitrary user attribute
+        self.assertEqual(tunnel.scratch, 123)
+
+
 if __name__ == '__main__':
     unittest.main()
