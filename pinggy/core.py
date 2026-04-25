@@ -49,21 +49,40 @@ pinggy_tunnel_state_t                           = ctypes.c_int
 
 def __make_cb_type(restype, *argtypes):
     """
-    Build a CFUNCTYPE callback class with a `.bind(py_func)` factory
-    attached. `bind` wraps the Python function so that, on dispatch:
+    Build a CFUNCTYPE callback class that auto-decodes its arguments
+    when invoked from C. Calling the returned class with a Python
+    function:
 
-      * `pinggy_char_p_t` / `pinggy_const_char_p_t` args arrive as `str`
+        cb = pinggy_on_X_cb_t(py_func)
+
+    creates a ctypes-bound callback whose Python side receives:
+
+      * `pinggy_char_p_t` / `pinggy_const_char_p_t` args as `str`
         (utf-8 decoded; `None` for NULL pointers)
-      * a consecutive `(pinggy_len_t, pinggy_char_p_p_t)` pair arrives
-        as a single `list[str]`
+      * a consecutive `(pinggy_len_t, pinggy_char_p_p_t)` pair as a
+        single `list[str]`
 
-    The returned class is still a real ctypes CFUNCTYPE — usable in
-    `argtypes` lists exactly like a vanilla CFUNCTYPE.
+    The returned class is still a real ctypes CFUNCTYPE, usable in
+    `argtypes` lists exactly like a vanilla CFUNCTYPE — the only
+    difference is the auto-wrapping that happens when an instance is
+    created.
     """
+    # ctypes.CFUNCTYPE caches classes by signature, so two pinggy
+    # callbacks with the same shape (e.g. tunnel_established and
+    # reconnection_completed) share one class. A sentinel guards
+    # against patching `__new__` more than once on the shared class —
+    # otherwise the wrappers stack and decoded args get re-decoded.
     cb_type = ctypes.CFUNCTYPE(restype, *argtypes)
-    cb_type.bind = staticmethod(
-        lambda py_func, _cb=cb_type: __wrap_callback(_cb, py_func)
-    )
+    if getattr(cb_type, "_pinggy_auto_decoded", False):
+        return cb_type
+    cb_type._pinggy_auto_decoded = True
+
+    original_new = cb_type.__new__
+
+    def __new__(cls, py_func):
+        return original_new(cls, __build_decoder(argtypes, py_func))
+
+    cb_type.__new__ = __new__
     return cb_type
 
 
@@ -200,11 +219,10 @@ def __getStringArray(l, arr):
     return [arr[i].decode('utf-8') for i in range(l)]
 
 
-def __wrap_callback(cb_type, py_func):
+def __build_decoder(argtypes, py_func):
     """
-    Wrap `py_func` as a ctypes callback of type `cb_type` (a CFUNCTYPE),
-    converting common pinggy argument shapes to Python natives so that
-    pylib callbacks can stay plain Python:
+    Return a Python wrapper around `py_func` that auto-converts the args
+    coming from C into Python natives:
 
       * `pinggy_char_p_t` / `pinggy_const_char_p_t`  -> `str`
         (utf-8 decoded; `None` if the C side passed NULL)
@@ -212,11 +230,10 @@ def __wrap_callback(cb_type, py_func):
         -> a single `list[str]`
       * any other argument -> passed through unchanged.
 
-    The Python function's parameter list shrinks accordingly: a callback
+    The wrapped function's parameter list shrinks accordingly: a callback
     declared with `(userdata, ref, len_t, char_p_p)` is invoked as
     `py_func(userdata, ref, urls_list)`.
     """
-    argtypes = cb_type._argtypes_
     n = len(argtypes)
 
     def wrapper(*args):
@@ -240,7 +257,7 @@ def __wrap_callback(cb_type, py_func):
                 i += 1
         return py_func(*out)
 
-    return cb_type(wrapper)
+    return wrapper
 
 #==============================
 pinggy_set_log_path                                             = __getFromCDLLIfSupported(
@@ -947,7 +964,7 @@ pinggy_build_os_len                                             = __getFromCDLLI
 
 def pinggy_raise_exception(etype, ewhat):
     global pinggy_thread_local_data
-    pinggy_thread_local_data.value = etype.decode('utf-8') + "what: " + ewhat.decode('utf-8')
+    pinggy_thread_local_data.value = etype + "what: " + ewhat
 
 pinggy_raise_exception = pinggy_on_raise_exception_cb_t(pinggy_raise_exception)
 

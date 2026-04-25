@@ -355,19 +355,19 @@ class Tunnel:
         self.__configRef                            = 0
         self.__resumable                            = False
 
-        self.__tunnel_established_cb                = core.pinggy_on_tunnel_established_cb_t.bind(self.__func_tunnel_established)
-        self.__tunnel_failed_cb                     = core.pinggy_on_tunnel_failed_cb_t.bind(self.__func_tunnel_failed)
-        self.__additional_forwarding_succeeded_cb   = core.pinggy_on_additional_forwarding_succeeded_cb_t.bind(self.__func_additional_forwarding_succeeded)
-        self.__additional_forwarding_failed_cb      = core.pinggy_on_additional_forwarding_failed_cb_t.bind(self.__func_additional_forwarding_failed)
-        self.__forwarding_changed_cb                = core.pinggy_on_forwardings_changed_cb_t.bind(self.__func_forwardings_changed)
-        self.__disconnected_cb                      = core.pinggy_on_disconnected_cb_t.bind(self.__func_disconnected)
-        self.__tunnel_error_cb                      = core.pinggy_on_tunnel_error_cb_t.bind(self.__func_tunnel_error)
-        self.__new_channel_cb                       = core.pinggy_on_new_channel_cb_t.bind(self.__func_new_channel)
-        self.__will_reconnect_cb                    = core.pinggy_on_will_reconnect_cb_t.bind(self.__func_will_reconnect)
-        self.__reconnecting_cb                      = core.pinggy_on_reconnecting_cb_t.bind(self.__func_reconnecting)
-        self.__reconnection_completed_cb            = core.pinggy_on_reconnection_completed_cb_t.bind(self.__func_reconnection_completed)
-        self.__reconnection_failed_cb               = core.pinggy_on_reconnection_failed_cb_t.bind(self.__func_reconnection_failed)
-        self.__usage_update_cb                      = core.pinggy_on_usage_update_cb_t.bind(self.__func_usage_update)
+        self.__tunnel_established_cb                = core.pinggy_on_tunnel_established_cb_t(self.__func_tunnel_established)
+        self.__tunnel_failed_cb                     = core.pinggy_on_tunnel_failed_cb_t(self.__func_tunnel_failed)
+        self.__additional_forwarding_succeeded_cb   = core.pinggy_on_additional_forwarding_succeeded_cb_t(self.__func_additional_forwarding_succeeded)
+        self.__additional_forwarding_failed_cb      = core.pinggy_on_additional_forwarding_failed_cb_t(self.__func_additional_forwarding_failed)
+        self.__forwarding_changed_cb                = core.pinggy_on_forwardings_changed_cb_t(self.__func_forwardings_changed)
+        self.__disconnected_cb                      = core.pinggy_on_disconnected_cb_t(self.__func_disconnected)
+        self.__tunnel_error_cb                      = core.pinggy_on_tunnel_error_cb_t(self.__func_tunnel_error)
+        self.__new_channel_cb                       = core.pinggy_on_new_channel_cb_t(self.__func_new_channel)
+        self.__will_reconnect_cb                    = core.pinggy_on_will_reconnect_cb_t(self.__func_will_reconnect)
+        self.__reconnecting_cb                      = core.pinggy_on_reconnecting_cb_t(self.__func_reconnecting)
+        self.__reconnection_completed_cb            = core.pinggy_on_reconnection_completed_cb_t(self.__func_reconnection_completed)
+        self.__reconnection_failed_cb               = core.pinggy_on_reconnection_failed_cb_t(self.__func_reconnection_failed)
+        self.__usage_update_cb                      = core.pinggy_on_usage_update_cb_t(self.__func_usage_update)
 
         self.__configRef                            = core.pinggy_create_config()
         self.__tunnelRef                            = core.pinggy_tunnel_initiate(self.__configRef)
@@ -694,10 +694,12 @@ class Tunnel:
         self.start()
 
     # All __func_* dispatchers below receive Python-native arguments
-    # (str / list[str] / int / etc.) thanks to the auto-decoding wrapper
-    # baked into each cb_type's `.bind` factory in core.py — no manual
-    # decoding or array unpacking is needed here. Parameter names match
-    # the pinggy.h C typedef for each callback.
+    # (str / list[str] / int / etc.) — each cb_type built by
+    # core.__make_cb_type wraps its argument-conversion into the class's
+    # __new__, so `cb_type(py_func)` produces a callback whose Python
+    # side already sees decoded args. No manual decoding or array
+    # unpacking is needed here. Parameter names match the pinggy.h C
+    # typedef for each callback.
 
     def __func_tunnel_established(self, user_data, tunnel_ref, urls):
         self.tunnel_startup_messages = urls
