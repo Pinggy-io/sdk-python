@@ -355,19 +355,19 @@ class Tunnel:
         self.__configRef                            = 0
         self.__resumable                            = False
 
-        self.__tunnel_established_cb                = core.pinggy_on_tunnel_established_cb_t(self.__func_tunnel_established)
-        self.__tunnel_failed_cb                     = core.pinggy_on_tunnel_failed_cb_t(self.__func_tunnel_failed)
-        self.__additional_forwarding_succeeded_cb   = core.pinggy_on_additional_forwarding_succeeded_cb_t(self.__func_additional_forwarding_succeeded)
-        self.__additional_forwarding_failed_cb      = core.pinggy_on_additional_forwarding_failed_cb_t(self.__func_additional_forwarding_failed)
-        self.__forwarding_changed_cb                = core.pinggy_on_forwardings_changed_cb_t(self.__func_forwardings_changed)
-        self.__disconnected_cb                      = core.pinggy_on_disconnected_cb_t(self.__func_disconnected)
-        self.__tunnel_error_cb                      = core.pinggy_on_tunnel_error_cb_t(self.__func_tunnel_error)
-        self.__new_channel_cb                       = core.pinggy_on_new_channel_cb_t(self.__func_new_channel)
-        self.__will_reconnect_cb                    = core.pinggy_on_will_reconnect_cb_t(self.__func_will_reconnect)
-        self.__reconnecting_cb                      = core.pinggy_on_reconnecting_cb_t(self.__func_reconnecting)
-        self.__reconnection_completed_cb            = core.pinggy_on_reconnection_completed_cb_t(self.__func_reconnection_completed)
-        self.__reconnection_failed_cb               = core.pinggy_on_reconnection_failed_cb_t(self.__func_reconnection_failed)
-        self.__usage_update_cb                      = core.pinggy_on_usage_update_cb_t(self.__func_usage_update)
+        self.__tunnel_established_cb                = core._wrap_callback(core.pinggy_on_tunnel_established_cb_t, self.__func_tunnel_established)
+        self.__tunnel_failed_cb                     = core._wrap_callback(core.pinggy_on_tunnel_failed_cb_t, self.__func_tunnel_failed)
+        self.__additional_forwarding_succeeded_cb   = core._wrap_callback(core.pinggy_on_additional_forwarding_succeeded_cb_t, self.__func_additional_forwarding_succeeded)
+        self.__additional_forwarding_failed_cb      = core._wrap_callback(core.pinggy_on_additional_forwarding_failed_cb_t, self.__func_additional_forwarding_failed)
+        self.__forwarding_changed_cb                = core._wrap_callback(core.pinggy_on_forwardings_changed_cb_t, self.__func_forwardings_changed)
+        self.__disconnected_cb                      = core._wrap_callback(core.pinggy_on_disconnected_cb_t, self.__func_disconnected)
+        self.__tunnel_error_cb                      = core._wrap_callback(core.pinggy_on_tunnel_error_cb_t, self.__func_tunnel_error)
+        self.__new_channel_cb                       = core._wrap_callback(core.pinggy_on_new_channel_cb_t, self.__func_new_channel)
+        self.__will_reconnect_cb                    = core._wrap_callback(core.pinggy_on_will_reconnect_cb_t, self.__func_will_reconnect)
+        self.__reconnecting_cb                      = core._wrap_callback(core.pinggy_on_reconnecting_cb_t, self.__func_reconnecting)
+        self.__reconnection_completed_cb            = core._wrap_callback(core.pinggy_on_reconnection_completed_cb_t, self.__func_reconnection_completed)
+        self.__reconnection_failed_cb               = core._wrap_callback(core.pinggy_on_reconnection_failed_cb_t, self.__func_reconnection_failed)
+        self.__usage_update_cb                      = core._wrap_callback(core.pinggy_on_usage_update_cb_t, self.__func_usage_update)
 
         self.__configRef                            = core.pinggy_create_config()
         self.__tunnelRef                            = core.pinggy_tunnel_initiate(self.__configRef)
@@ -693,72 +693,62 @@ class Tunnel:
         logger.warning("The method 'serve_tunnel' has been removed and it is equivalent to `start` now. Use start instead.")
         self.start()
 
-    def __func_tunnel_established(self, userdata, ref, l, arr):
-        self.tunnel_statup_messages = core._getStringArray(l, arr)
+    # All __func_* dispatchers below receive Python-native arguments
+    # (str / list[str] / int / etc.) thanks to core._wrap_callback — no
+    # manual decoding or array unpacking is needed here. Parameter names
+    # match the pinggy.h C typedef for each callback.
+
+    def __func_tunnel_established(self, user_data, tunnel_ref, urls):
+        self.tunnel_statup_messages = urls
         self.__continue_polling = False
         self.__tunnel_started = True
-        self.__urls = core._getStringArray(l, arr)
-        self.__eventHandler.tunnel_established(self.__urls)
+        self.__urls = urls
+        self.__eventHandler.tunnel_established(urls)
 
-    def __func_tunnel_failed(self, userdata, ref, msg):
-        msg = msg.decode('utf-8')
+    def __func_tunnel_failed(self, user_data, tunnel_ref, msg):
         self.tunnel_statup_messages = [msg]
         self.__continue_polling = False
         self.__eventHandler.tunnel_failed(msg)
 
-    def __func_additional_forwarding_succeeded(self, userdata, ref, bindAddr, forwardTo, forwardingType):
-        bindAddr = bindAddr.decode('utf-8')
-        forwardTo = forwardTo.decode('utf-8')
-        forwardingType = forwardingType.decode('utf-8')
-        self.__eventHandler.additional_forwarding_succeeded(bindAddr, forwardTo, forwardingType)
-        # print(f"RemoteFowardingSucceeded: Reference: {ref} `{bindAddr}` `{forwardTo}`")
+    def __func_additional_forwarding_succeeded(self, user_data, tunnel_ref, bind_addr, forward_to_addr, forwarding_type):
+        self.__eventHandler.additional_forwarding_succeeded(bind_addr, forward_to_addr, forwarding_type)
 
-    def __func_additional_forwarding_failed(self, userdata, ref, bindAddr, forwardTo, forwardingType, err):
-        bindAddr = bindAddr.decode('utf-8')
-        forwardTo = forwardTo.decode('utf-8')
-        forwardingType = forwardingType.decode('utf-8')
-        err = err.decode('utf-8')
-        self.__eventHandler.additional_forwarding_failed(bindAddr, forwardTo, forwardingType, err)
-        # print(f"RemoteFowardingSucceeded: Reference: {ref} `{bindAddr}` `{forwardTo}` `{err}`")
+    def __func_additional_forwarding_failed(self, user_data, tunnel_ref, bind_addr, forward_to_addr, forwarding_type, error):
+        self.__eventHandler.additional_forwarding_failed(bind_addr, forward_to_addr, forwarding_type, error)
 
-    def __func_forwardings_changed(self, userdate, ref, forwardings):
-        forwardings = forwardings.decode('utf-8')
-        self.__eventHandler.forwardings_changed(forwardings)
+    def __func_forwardings_changed(self, user_data, tunnel_ref, url_map):
+        self.__eventHandler.forwardings_changed(url_map)
 
-    def __func_disconnected(self, userdata, ref, msg, l, arr):
+    def __func_disconnected(self, user_data, tunnel_ref, error, msg):
         self.__continue_polling = False
         self.__resumable = False
-        self.__eventHandler.disconnected(msg.decode('utf-8'))
+        self.__eventHandler.disconnected(error)
 
-    def __func_tunnel_error(self, userdata, ref, errorNo, msg, recoverable):
-        msg = msg.decode('utf-8')
-        self.__eventHandler.tunnel_error(errorNo, msg, recoverable)
+    def __func_tunnel_error(self, user_data, tunnel_ref, error_no, error, recoverable):
+        self.__eventHandler.tunnel_error(error_no, error, recoverable)
 
-    def __func_new_channel(self, userdata, ref, chan_ref):
+    def __func_new_channel(self, user_data, tunnel_ref, channel_ref):
         if not self.__eventHandler.handle_channel():
             return False
-        channel = Channel(chan_ref)
+        channel = Channel(channel_ref)
         self.__eventHandler.new_channel(channel)
         return True
 
-    def __func_will_reconnect(self, user_data, ref, error, l, arr):
-        msgs = core._getStringArray(l, arr)
-        self.__eventHandler.will_reconnect(msgs)
+    def __func_will_reconnect(self, user_data, tunnel_ref, error, messages):
+        self.__eventHandler.will_reconnect(messages)
 
-    def __func_reconnecting(self, user_data, ref, retry_cnt):
+    def __func_reconnecting(self, user_data, tunnel_ref, retry_cnt):
         self.__eventHandler.reconnecting(retry_cnt)
 
-    def __func_reconnection_completed(self, user_data, ref, l, arr):
-        self.__urls = core._getStringArray(l, arr)
+    def __func_reconnection_completed(self, user_data, tunnel_ref, urls):
+        self.__urls = urls
         self.__eventHandler.reconnection_completed()
 
-    def __func_reconnection_failed(self, user_data, ref, retry_cnt):
+    def __func_reconnection_failed(self, user_data, tunnel_ref, retry_cnt):
         self.__eventHandler.reconnection_failed(retry_cnt)
 
-    def __func_usage_update(self, user_data, ref, usages):
-        usages = usages.decode('utf-8')
-        usages = json.loads(usages)
-        self.__eventHandler.usage_update(usages)
+    def __func_usage_update(self, user_data, tunnel_ref, usages):
+        self.__eventHandler.usage_update(json.loads(usages))
 
 
     #////////////////////

@@ -315,7 +315,7 @@ class TestAddCallback(unittest.TestCase):
         captured = []
         tunnel.add_callback("tunnel_failed", lambda msg: captured.append(msg))
         # Drive the C-callback dispatcher directly with a fake msg.
-        tunnel._Tunnel__func_tunnel_failed(None, 0, b"oops")
+        tunnel._Tunnel__func_tunnel_failed(None, 0, "oops")
         self.assertEqual(captured, ["oops"])
 
     def test_add_callback_overrides_eventclass_method(self):
@@ -330,7 +330,7 @@ class TestAddCallback(unittest.TestCase):
         tunnel = Tunnel(eventClass=HandlerThatLogs)
         captured = []
         tunnel.add_callback("disconnected", lambda msg: captured.append(("cb", msg)))
-        tunnel._Tunnel__func_disconnected(None, 0, b"bye", 0, None)
+        tunnel._Tunnel__func_disconnected(None, 0, "bye", [])
         # Only the callback should fire, not the class method.
         self.assertEqual(captured, [("cb", "bye")])
         self.assertEqual(tunnel._Tunnel__eventHandler.calls, [])
@@ -340,15 +340,15 @@ class TestAddCallback(unittest.TestCase):
         events = []
         tunnel.add_callback("tunnel_failed", lambda msg: events.append(("failed", msg)))
         tunnel.add_callback("disconnected", lambda msg: events.append(("disc", msg)))
-        tunnel._Tunnel__func_tunnel_failed(None, 0, b"a")
-        tunnel._Tunnel__func_disconnected(None, 0, b"b", 0, None)
+        tunnel._Tunnel__func_tunnel_failed(None, 0, "a")
+        tunnel._Tunnel__func_disconnected(None, 0, "b", [])
         self.assertEqual(events, [("failed", "a"), ("disc", "b")])
 
     def test_on_event_attribute_assignment_routes_to_handler(self):
         tunnel = Tunnel()
         captured = []
         tunnel.on_tunnel_failed = lambda msg: captured.append(msg)
-        tunnel._Tunnel__func_tunnel_failed(None, 0, b"oops")
+        tunnel._Tunnel__func_tunnel_failed(None, 0, "oops")
         self.assertEqual(captured, ["oops"])
 
     def test_on_event_attribute_get_returns_installed_callback(self):
@@ -369,7 +369,7 @@ class TestAddCallback(unittest.TestCase):
         tunnel = Tunnel(eventClass=HandlerThatLogs)
         captured = []
         tunnel.on_disconnected = lambda msg: captured.append(msg)
-        tunnel._Tunnel__func_disconnected(None, 0, b"bye", 0, None)
+        tunnel._Tunnel__func_disconnected(None, 0, "bye", [])
         self.assertEqual(captured, ["bye"])
         self.assertEqual(tunnel._Tunnel__eventHandler.calls, [])
 

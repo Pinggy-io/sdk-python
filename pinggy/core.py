@@ -174,7 +174,52 @@ def __getFromCDLLIfSupported(funcName, restype, argtypes, getstring=False, ret=N
     return func
 
 def _getStringArray(l, arr):
+    if not l or not arr:
+        return []
     return [arr[i].decode('utf-8') for i in range(l)]
+
+
+def _wrap_callback(cb_type, py_func):
+    """
+    Wrap `py_func` as a ctypes callback of type `cb_type` (a CFUNCTYPE),
+    converting common pinggy argument shapes to Python natives so that
+    pylib callbacks can stay plain Python:
+
+      * `pinggy_char_p_t` / `pinggy_const_char_p_t`  -> `str`
+        (utf-8 decoded; `None` if the C side passed NULL)
+      * a consecutive `(pinggy_len_t, pinggy_char_p_p_t)` pair
+        -> a single `list[str]`
+      * any other argument -> passed through unchanged.
+
+    The Python function's parameter list shrinks accordingly: a callback
+    declared with `(userdata, ref, len_t, char_p_p)` is invoked as
+    `py_func(userdata, ref, urls_list)`.
+    """
+    argtypes = cb_type._argtypes_
+    n = len(argtypes)
+
+    def wrapper(*args):
+        out = []
+        i = 0
+        while i < n:
+            t = argtypes[i]
+            v = args[i]
+            if t is pinggy_const_char_p_t or t is pinggy_char_p_t:
+                out.append(v.decode('utf-8') if isinstance(v, bytes) else v)
+                i += 1
+            elif (
+                t is pinggy_len_t
+                and i + 1 < n
+                and argtypes[i + 1] is pinggy_char_p_p_t
+            ):
+                out.append(_getStringArray(v, args[i + 1]))
+                i += 2
+            else:
+                out.append(v)
+                i += 1
+        return py_func(*out)
+
+    return cb_type(wrapper)
 
 #==============================
 pinggy_set_log_path                                             = __getFromCDLLIfSupported(
