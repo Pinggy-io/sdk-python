@@ -358,6 +358,11 @@ class Tunnel:
         self.__lock                                 = threading.Lock()
         self.__editableConfig                       = True
 
+        self.__newForwardingMode                    = False
+        self.__legacyMode                           = False
+        self.__legacyTcpForwarding                  = ["tcp", "", ""]
+        self.__legacyUdpForwarding                  = ["udp", "", ""]
+
         self.__urls                                 = []
         self.authentication_messages                = []
         self.tunnel_statup_messages                 = []
@@ -442,9 +447,9 @@ class Tunnel:
         return ret
 
     def connect(self):
-        raise pinggyexception.PinggyRemovedPropertyError(
-            "The method 'connect' has been removed. Use start instead."
-        )
+        logger.warning("The method 'connect' has been removed and it is NO-OP now. Use start instead.")
+        return True
+
     def stop(self):
         """Stops the running tunnel."""
         core.pinggy_tunnel_stop(self.__tunnelRef)
@@ -471,9 +476,9 @@ class Tunnel:
         return core.pinggy_tunnel_start_web_debugging(self.__tunnelRef, port)
 
     def request_primary_forwarding(self):
-        raise pinggyexception.PinggyRemovedPropertyError(
-            "The method 'request_primary_forwarding' has been removed. Use start instead."
-        )
+        logger.warning("The method 'request_primary_forwarding' has been removed and it is NO-OP now. Use start instead.")
+        return True
+
     def request_additional_forwarding(self, bindAddr, forwardTo, forwardingType="http"):
         """
         Once primary forwarding is done, user can request additional forwarding for other ports.
@@ -526,9 +531,8 @@ class Tunnel:
         return TunnelState(c_state)
 
     def serve_tunnel(self):
-        raise pinggyexception.PinggyRemovedPropertyError(
-            "The method 'serve_tunnel' has been removed. Use start instead."
-        )
+        logger.warning("The method 'serve_tunnel' has been removed and it is equivalent to `start` now. Use start instead.")
+        self.start()
 
     def __func_tunnel_established(self, userdata, ref, l, arr):
         self.tunnel_statup_messages = core._getStringArray(l, arr)
@@ -610,10 +614,24 @@ class Tunnel:
         """
         return core.pinggy_config_get_server_address_len(self.__configRef)
 
+    @server_address.setter
+    def server_address(self, val):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        val = val if isinstance(val, bytes) else val.encode("utf-8")
+        core.pinggy_config_set_server_address(self.__configRef, val)
+
     @property
     def token(self):
         """str: Token for the tunnel. One can it from `dashboard.pinggy.io`"""
         return core.pinggy_config_get_token_len(self.__configRef)
+
+    @token.setter
+    def token(self, val):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        val = val if isinstance(val, bytes) else val.encode("utf-8")
+        core.pinggy_config_set_token(self.__configRef, val)
 
     @property
     def forwardings(self):
@@ -624,37 +642,96 @@ class Tunnel:
 
     @property
     def type(self):
-        raise pinggyexception.PinggyRemovedPropertyError(
-            "The property 'type' has been removed. Use set_forwarding."
-        )
+        return self.__legacyTcpForwarding[0]
+
+    @type.setter
+    def type(self, val):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        if self.__newForwardingMode:
+            raise Exception("You cannot combine lagacy mode and none legacy mode")
+        self.__legacyMode = True
+        self.__legacyTcpForwarding[0] = val
+        self.__set_legacy_forwardings()
 
     @property
     def udp_type(self):
-        raise pinggyexception.PinggyRemovedPropertyError(
-            "The property 'udp_type' has been removed. Use set_forwarding."
-        )
+        return self.__legacyUdpForwarding[0]
+
+    @udp_type.setter
+    def udp_type(self, val):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        if self.__newForwardingMode:
+            raise Exception("You cannot combine lagacy mode and none legacy mode")
+        self.__legacyMode = True
+        self.__legacyUdpForwarding[0] = val
+        self.__set_legacy_forwardings()
 
     @property
     def tcp_forward_to(self):
-        raise pinggyexception.PinggyRemovedPropertyError(
-            "The property 'tcp_forward_to' has been removed. Use set_forwarding."
-        )
+        return self.__legacyTcpForwarding[2]
+
+    def __set_legacy_forwardings(self):
+        core.pinggy_config_reset_forwardings(self.__configRef)
+        if self.__legacyTcpForwarding[2] != "":
+            core.pinggy_config_add_forwarding(self.__configRef, *self.__legacyTcpForwarding)
+        if self.__legacyUdpForwarding[2] != "":
+            core.pinggy_config_add_forwarding(self.__configRef, *self.__legacyUdpForwarding)
+
+    @tcp_forward_to.setter
+    def tcp_forward_to(self, val):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        if self.__newForwardingMode:
+            raise Exception("You cannot combine lagacy mode and none legacy mode")
+        self.__legacyMode = True
+        if type(val) == int:
+            val = f"localhost:{val}"
+        self.__legacyTcpForwarding[2] = val
+        self.__set_legacy_forwardings()
 
     @property
     def udp_forward_to(self):
-        raise pinggyexception.PinggyRemovedPropertyError(
-            "The property 'tcp_forward_to' has been removed. Use set_forwarding."
-        )
+        return self.__legacyUdpForwarding[2]
+
+    @udp_forward_to.setter
+    def udp_forward_to(self, val):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        if self.__newForwardingMode:
+            raise Exception("You cannot combine lagacy mode and none legacy mode")
+        self.__legacyMode = True
+        if type(val) == int:
+            val = f"localhost:{val}"
+        self.__legacyUdpForwarding[2] = val
+        self.__set_legacy_forwardings()
 
     @property
     def force(self):
         """bool: force flag in tunnel that terminates any existing tunnel with the same token."""
         return core.pinggy_config_get_force(self.__configRef)
 
+    @force.setter
+    def force(self, val):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        core.pinggy_config_set_force(self.__configRef, val)
+
     @property
     def argument(self):
         """str: tunnel arguments for header manipulation and others."""
         return core.pinggy_config_get_argument_len(self.__configRef)
+
+    @argument.setter
+    def argument(self, val: str):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+
+        if type(val) != str:
+            raise Exception("Only string is allowed")
+
+        core.pinggy_config_set_argument(self.__configRef, val)
 
     @property
     def advanced_parsing(self):
@@ -663,12 +740,24 @@ class Tunnel:
         """
         return core.pinggy_config_get_advanced_parsing(self.__configRef)
 
+    @advanced_parsing.setter
+    def advanced_parsing(self, val):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        core.pinggy_config_set_advanced_parsing(self.__configRef, val)
+
     @property
     def ssl(self):
         """
         Keep it true. Production tunnel doesn't works without ssl.
         """
         return core.pinggy_config_get_ssl(self.__configRef)
+
+    @ssl.setter
+    def ssl(self, val):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        core.pinggy_config_set_ssl(self.__configRef, val)
 
     @property
     def sni_server_name(self):
@@ -677,12 +766,25 @@ class Tunnel:
         """
         return core.pinggy_config_get_sni_server_name(self.__configRef)
 
+    @sni_server_name.setter
+    def sni_server_name(self, val):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        val = val if isinstance(val, bytes) else val.encode("utf-8")
+        core.pinggy_config_set_sni_server_name(self.__configRef, val)
+
     @property
     def insecure(self):
         """
         Keep it true. Production tunnel doesn't works without it.
         """
         return core.pinggy_config_get_insecure(self.__configRef)
+
+    @insecure.setter
+    def insecure(self, val):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        core.pinggy_config_set_insecure(self.__configRef, val)
 
     @property
     def auto_reconnect(self):
@@ -691,12 +793,22 @@ class Tunnel:
         """
         return core.pinggy_config_get_auto_reconnect(self.__configRef)
 
+    @auto_reconnect.setter
+    def auto_reconnect(self, val):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        core.pinggy_config_set_auto_reconnect(self.__configRef, val)
+
     @property
     def max_reconnect_attempts(self):
         """
         Set number of connection attempt before it give up. Setting this to `0` means infinite attempts.
         """
         return core.pinggy_config_get_max_reconnect_attempts(self.__configRef)
+
+    @max_reconnect_attempts.setter
+    def max_reconnect_attempts(self, val):
+        return core.pinggy_config_set_max_reconnect_attempts(self.__configRef, val)
 
     @property
     def reconnect_interval(self):
@@ -705,21 +817,11 @@ class Tunnel:
         """
         return core.pinggy_config_get_reconnect_interval(self.__configRef)
 
+    @reconnect_interval.setter
+    def reconnect_interval(self, val):
+        return core.pinggy_config_set_reconnect_interval(self.__configRef, val)
+
     #////////////////////////////////
-
-    @server_address.setter
-    def server_address(self, val):
-        if not self.__editableConfig:
-            raise Exception("Tunnel is already connected, no modification allowed")
-        val = val if isinstance(val, bytes) else val.encode("utf-8")
-        core.pinggy_config_set_server_address(self.__configRef, val)
-
-    @token.setter
-    def token(self, val):
-        if not self.__editableConfig:
-            raise Exception("Tunnel is already connected, no modification allowed")
-        val = val if isinstance(val, bytes) else val.encode("utf-8")
-        core.pinggy_config_set_token(self.__configRef, val)
 
     @forwardings.setter
     def forwardings(self, forwardings: int|str|list[dict]):
@@ -753,6 +855,9 @@ class Tunnel:
         """
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
+        if self.__legacyMode:
+            raise Exception("You cannot combine lagacy mode and none legacy mode")
+        self.__newForwardingMode = True
         if type(forwardings) == int:
             forwardings = "localhost:"+str(forwardings)
         if isinstance(forwardings, list):
@@ -763,6 +868,9 @@ class Tunnel:
     def forwardings(self):
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
+        if self.__legacyMode:
+            raise Exception("You cannot combine lagacy mode and none legacy mode")
+        self.__newForwardingMode = True
         core.pinggy_config_reset_forwardings(self.__configRef)
 
     def add_forwarding(self, address: str, type: str|None = None, listen_address: str|None = None):
@@ -800,67 +908,15 @@ class Tunnel:
         """
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
+        if self.__legacyMode:
+            raise Exception("You cannot combine lagacy mode and none legacy mode")
+        self.__newForwardingMode = True
         if (type is None or type == "") and (listen_address is None or listen_address == ""):
             core.pinggy_config_add_forwarding_simple(self.__configRef, address)
         else:
             if listen_address is None:
                 listen_address = ""
             core.pinggy_config_add_forwarding(self.__configRef, type, listen_address, address)
-
-    @force.setter
-    def force(self, val):
-        if not self.__editableConfig:
-            raise Exception("Tunnel is already connected, no modification allowed")
-        core.pinggy_config_set_force(self.__configRef, val)
-
-    @argument.setter
-    def argument(self, val: str):
-        if not self.__editableConfig:
-            raise Exception("Tunnel is already connected, no modification allowed")
-
-        if type(val) != str:
-            raise Exception("Only string is allowed")
-
-        core.pinggy_config_set_argument(self.__configRef, val)
-
-    @advanced_parsing.setter
-    def advanced_parsing(self, val):
-        if not self.__editableConfig:
-            raise Exception("Tunnel is already connected, no modification allowed")
-        core.pinggy_config_set_advanced_parsing(self.__configRef, val)
-
-    @ssl.setter
-    def ssl(self, val):
-        if not self.__editableConfig:
-            raise Exception("Tunnel is already connected, no modification allowed")
-        core.pinggy_config_set_ssl(self.__configRef, val)
-
-    @sni_server_name.setter
-    def sni_server_name(self, val):
-        if not self.__editableConfig:
-            raise Exception("Tunnel is already connected, no modification allowed")
-        val = val if isinstance(val, bytes) else val.encode("utf-8")
-        core.pinggy_config_set_sni_server_name(self.__configRef, val)
-
-    @insecure.setter
-    def insecure(self, val):
-        if not self.__editableConfig:
-            raise Exception("Tunnel is already connected, no modification allowed")
-        core.pinggy_config_set_insecure(self.__configRef, val)
-
-    @auto_reconnect.setter
-    def auto_reconnect(self, val):
-        if not self.__editableConfig:
-            raise Exception("Tunnel is already connected, no modification allowed")
-        core.pinggy_config_set_auto_reconnect(self.__configRef, val)
-
-    @max_reconnect_attempts.setter
-    def max_reconnect_attempts(self, val):
-        return core.pinggy_config_set_max_reconnect_attempts(self.__configRef, val)
-
-    @reconnect_interval.setter
-    def reconnect_interval(self, val):
-        return core.pinggy_config_set_reconnect_interval(self.__configRef, val)
 
     #//////////////////////
 
