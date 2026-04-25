@@ -382,7 +382,7 @@ class Tunnel:
 
         self.__urls                                 = []
         self.authentication_messages                = []
-        self.tunnel_statup_messages                 = []
+        self.tunnel_startup_messages                 = []
         self.server_address                         = server_address
 
         self.__eventHandler                         = eventClass(self)
@@ -699,14 +699,14 @@ class Tunnel:
     # match the pinggy.h C typedef for each callback.
 
     def __func_tunnel_established(self, user_data, tunnel_ref, urls):
-        self.tunnel_statup_messages = urls
+        self.tunnel_startup_messages = urls
         self.__continue_polling = False
         self.__tunnel_started = True
         self.__urls = urls
         self.__eventHandler.tunnel_established(urls)
 
     def __func_tunnel_failed(self, user_data, tunnel_ref, msg):
-        self.tunnel_statup_messages = [msg]
+        self.tunnel_startup_messages = [msg]
         self.__continue_polling = False
         self.__eventHandler.tunnel_failed(msg)
 
