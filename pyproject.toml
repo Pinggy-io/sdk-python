@@ -1,0 +1,11 @@
+[build-system]
+requires = ["setuptools>=64", "wheel", "setuptools_scm[toml]>=8"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+# Write the resolved version to a generated, gitignored module that
+# `pinggy/__version__.py` imports at runtime. Between tags the version
+# looks like `0.1.0.dev3+g83993f9`; on a clean release tag it's just
+# `0.1.0`.
+write_to = "pinggy/_version.py"
+fallback_version = "0.0.0+unknown"

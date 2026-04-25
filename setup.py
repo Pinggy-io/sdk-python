@@ -11,7 +11,6 @@ import zipfile
 import tarfile
 import ssl
 import urllib
-import subprocess
 from pinggy import __version__ as version
 
 PINGGY_LIB_VERSION = version.__lib_pinggy_version
@@ -203,16 +202,10 @@ class BinaryDistribution(Distribution):
     def has_ext_modules(self):
         return True
 
-def get_version():
-    try:
-        return subprocess.check_output(['git', 'describe', '--tags', '--abbrev=0']).decode().strip()
-    except Exception as e:
-        print("Exception occured while getting tag: ", e)
-        return "0.0.0"
-
+# Package version comes from setuptools_scm (configured in pyproject.toml);
+# do not pass `version=` here.
 setup(
     name="pinggy",
-    version=version.__version__,
     packages=find_packages(),
     include_package_data=True,
     package_data={"pinggy": get_shared_libraries()},

@@ -5,4 +5,6 @@ __pycache__
 bin
 venv
 pinggy/bin
+pinggy/_version.py
 dev_pinggy.egg-info
+*.egg-info
