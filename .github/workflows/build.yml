@@ -26,6 +26,12 @@ jobs:
           python -m pip install --upgrade build twine
           python -m pip install -r requirements.txt
 
+      - name: Run unit tests
+        env:
+          PINGGY_DL_NATIVE: "true"
+        run: |
+          python -m unittest tests.test_tunnel_properties
+
       - name: Build the package
         run: |
           make
