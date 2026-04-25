@@ -3,8 +3,39 @@ name: Build Python Package
 on: [push]
 
 jobs:
-  build-and-publish:
-    name: Build and Publish to PyPI
+  test:
+    name: Test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 20
+
+      - name: Fetch tags
+        run: git fetch --tags
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Run unit tests
+        env:
+          PINGGY_DL_NATIVE: "true"
+        run: python -m unittest tests.test_tunnel_properties
+
+  build:
+    name: Build wheels
+    needs: test
     runs-on: ubuntu-latest
 
     steps:
@@ -26,12 +57,6 @@ jobs:
           python -m pip install --upgrade build twine
           python -m pip install -r requirements.txt
 
-      - name: Run unit tests
-        env:
-          PINGGY_DL_NATIVE: "true"
-        run: |
-          python -m unittest tests.test_tunnel_properties
-
       - name: Build the package
         run: |
           make
@@ -40,4 +65,3 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           path: dist/*
-
