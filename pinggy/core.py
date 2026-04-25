@@ -46,29 +46,69 @@ pinggy_uint16_t                                 = ctypes.c_uint16
 pinggy_raw_len_t                                = ctypes.c_int32
 pinggy_tunnel_state_t                           = ctypes.c_int
 
-# pinggy_on_connected_cb_t                        = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t)
-# pinggy_on_authenticated_cb_t                    = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t)
-# pinggy_on_authentication_failed_cb_t            = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_len_t, pinggy_char_p_p_t)
-pinggy_on_tunnel_established_cb_t               = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_len_t, pinggy_char_p_p_t)
-pinggy_on_tunnel_failed_cb_t                    = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t)
-pinggy_on_additional_forwarding_succeeded_cb_t  = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t, pinggy_const_char_p_t, pinggy_const_char_p_t)
-pinggy_on_additional_forwarding_failed_cb_t     = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t, pinggy_const_char_p_t, pinggy_const_char_p_t, pinggy_const_char_p_t)
-pinggy_on_forwardings_changed_cb_t              = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t)
-pinggy_on_disconnected_cb_t                     = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t, pinggy_len_t, pinggy_char_p_p_t)
-pinggy_on_tunnel_error_cb_t                     = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_uint32_t, pinggy_char_p_t, pinggy_bool_t)
-pinggy_on_new_channel_cb_t                      = ctypes.CFUNCTYPE(pinggy_bool_t, pinggy_void_p_t, pinggy_ref_t, pinggy_ref_t)
-pinggy_on_raise_exception_cb_t                  = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_const_char_p_t, pinggy_const_char_p_t)
-pinggy_on_tunnel_error_cb_t                     = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_uint32_t, pinggy_const_char_p_t, pinggy_bool_t)
-pinggy_on_will_reconnect_cb_t                   = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t, pinggy_len_t, pinggy_char_p_p_t)
-pinggy_on_reconnecting_cb_t                     = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_uint16_t)
-pinggy_on_reconnection_completed_cb_t           = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_len_t, pinggy_char_p_p_t)
-pinggy_on_reconnection_failed_cb_t              = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_uint16_t)
-pinggy_on_usage_update_cb_t                     = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t)
 
-pinggy_channel_on_data_received_cb_t            = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t)
-pinggy_channel_on_ready_to_send_cb_t            = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_uint32_t)
-pinggy_channel_on_error_cb_t                    = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t, pinggy_len_t)
-pinggy_channel_on_cleanup_cb_t                  = ctypes.CFUNCTYPE(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t)
+def __make_cb_type(restype, *argtypes):
+    """
+    Build a CFUNCTYPE callback class that auto-decodes its arguments
+    when invoked from C. Calling the returned class with a Python
+    function:
+
+        cb = pinggy_on_X_cb_t(py_func)
+
+    creates a ctypes-bound callback whose Python side receives:
+
+      * `pinggy_char_p_t` / `pinggy_const_char_p_t` args as `str`
+        (utf-8 decoded; `None` for NULL pointers)
+      * a consecutive `(pinggy_len_t, pinggy_char_p_p_t)` pair as a
+        single `list[str]`
+
+    The returned class is still a real ctypes CFUNCTYPE, usable in
+    `argtypes` lists exactly like a vanilla CFUNCTYPE — the only
+    difference is the auto-wrapping that happens when an instance is
+    created.
+    """
+    # ctypes.CFUNCTYPE caches classes by signature, so two pinggy
+    # callbacks with the same shape (e.g. tunnel_established and
+    # reconnection_completed) share one class. A sentinel guards
+    # against patching `__new__` more than once on the shared class —
+    # otherwise the wrappers stack and decoded args get re-decoded.
+    cb_type = ctypes.CFUNCTYPE(restype, *argtypes)
+    if getattr(cb_type, "_pinggy_auto_decoded", False):
+        return cb_type
+    cb_type._pinggy_auto_decoded = True
+
+    original_new = cb_type.__new__
+
+    def __new__(cls, py_func):
+        return original_new(cls, __build_decoder(argtypes, py_func))
+
+    cb_type.__new__ = __new__
+    return cb_type
+
+
+# pinggy_on_connected_cb_t                        = __make_cb_type(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t)
+# pinggy_on_authenticated_cb_t                    = __make_cb_type(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t)
+# pinggy_on_authentication_failed_cb_t            = __make_cb_type(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_len_t, pinggy_char_p_p_t)
+pinggy_on_tunnel_established_cb_t               = __make_cb_type(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_len_t, pinggy_char_p_p_t)
+pinggy_on_tunnel_failed_cb_t                    = __make_cb_type(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t)
+pinggy_on_additional_forwarding_succeeded_cb_t  = __make_cb_type(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t, pinggy_const_char_p_t, pinggy_const_char_p_t)
+pinggy_on_additional_forwarding_failed_cb_t     = __make_cb_type(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t, pinggy_const_char_p_t, pinggy_const_char_p_t, pinggy_const_char_p_t)
+pinggy_on_forwardings_changed_cb_t              = __make_cb_type(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t)
+pinggy_on_disconnected_cb_t                     = __make_cb_type(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t, pinggy_len_t, pinggy_char_p_p_t)
+pinggy_on_tunnel_error_cb_t                     = __make_cb_type(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_uint32_t, pinggy_char_p_t, pinggy_bool_t)
+pinggy_on_new_channel_cb_t                      = __make_cb_type(pinggy_bool_t, pinggy_void_p_t, pinggy_ref_t, pinggy_ref_t)
+pinggy_on_raise_exception_cb_t                  = __make_cb_type(pinggy_void_t, pinggy_const_char_p_t, pinggy_const_char_p_t)
+pinggy_on_tunnel_error_cb_t                     = __make_cb_type(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_uint32_t, pinggy_const_char_p_t, pinggy_bool_t)
+pinggy_on_will_reconnect_cb_t                   = __make_cb_type(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t, pinggy_len_t, pinggy_char_p_p_t)
+pinggy_on_reconnecting_cb_t                     = __make_cb_type(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_uint16_t)
+pinggy_on_reconnection_completed_cb_t           = __make_cb_type(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_len_t, pinggy_char_p_p_t)
+pinggy_on_reconnection_failed_cb_t              = __make_cb_type(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_uint16_t)
+pinggy_on_usage_update_cb_t                     = __make_cb_type(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t)
+
+pinggy_channel_on_data_received_cb_t            = __make_cb_type(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t)
+pinggy_channel_on_ready_to_send_cb_t            = __make_cb_type(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_uint32_t)
+pinggy_channel_on_error_cb_t                    = __make_cb_type(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t, pinggy_const_char_p_t, pinggy_len_t)
+pinggy_channel_on_cleanup_cb_t                  = __make_cb_type(pinggy_void_t, pinggy_void_p_t, pinggy_ref_t)
 
 #==============================
 #   Backward Compatibility
@@ -173,8 +213,51 @@ def __getFromCDLLIfSupported(funcName, restype, argtypes, getstring=False, ret=N
 
     return func
 
-def _getStringArray(l, arr):
+def __getStringArray(l, arr):
+    if not l or not arr:
+        return []
     return [arr[i].decode('utf-8') for i in range(l)]
+
+
+def __build_decoder(argtypes, py_func):
+    """
+    Return a Python wrapper around `py_func` that auto-converts the args
+    coming from C into Python natives:
+
+      * `pinggy_char_p_t` / `pinggy_const_char_p_t`  -> `str`
+        (utf-8 decoded; `None` if the C side passed NULL)
+      * a consecutive `(pinggy_len_t, pinggy_char_p_p_t)` pair
+        -> a single `list[str]`
+      * any other argument -> passed through unchanged.
+
+    The wrapped function's parameter list shrinks accordingly: a callback
+    declared with `(userdata, ref, len_t, char_p_p)` is invoked as
+    `py_func(userdata, ref, urls_list)`.
+    """
+    n = len(argtypes)
+
+    def wrapper(*args):
+        out = []
+        i = 0
+        while i < n:
+            t = argtypes[i]
+            v = args[i]
+            if t is pinggy_const_char_p_t or t is pinggy_char_p_t:
+                out.append(v.decode('utf-8') if isinstance(v, bytes) else v)
+                i += 1
+            elif (
+                t is pinggy_len_t
+                and i + 1 < n
+                and argtypes[i + 1] is pinggy_char_p_p_t
+            ):
+                out.append(__getStringArray(v, args[i + 1]))
+                i += 2
+            else:
+                out.append(v)
+                i += 1
+        return py_func(*out)
+
+    return wrapper
 
 #==============================
 pinggy_set_log_path                                             = __getFromCDLLIfSupported(
@@ -881,7 +964,7 @@ pinggy_build_os_len                                             = __getFromCDLLI
 
 def pinggy_raise_exception(etype, ewhat):
     global pinggy_thread_local_data
-    pinggy_thread_local_data.value = etype.decode('utf-8') + "what: " + ewhat.decode('utf-8')
+    pinggy_thread_local_data.value = etype + "what: " + ewhat
 
 pinggy_raise_exception = pinggy_on_raise_exception_cb_t(pinggy_raise_exception)
 
