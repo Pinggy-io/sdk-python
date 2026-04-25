@@ -512,20 +512,14 @@ class Tunnel:
         """
         Register a function to be called for a tunnel event.
 
-        The supported event names match the methods on `BaseTunnelHandler`
-        (`tunnel_established`, `tunnel_failed`, `additional_forwarding_succeeded`,
-        `additional_forwarding_failed`, `forwardings_changed`, `disconnected`,
-        `tunnel_error`, `will_reconnect`, `reconnecting`,
-        `reconnection_completed`, `reconnection_failed`, `usage_update`).
+        Equivalent to setting the corresponding `on_<event_name>` property,
+        but useful when the event name is only known at runtime.
 
         The callback is installed directly on the underlying event handler
         instance, so it overrides the matching method even when a custom
         handler class was passed via `eventClass`. The callback receives
         the same positional arguments as the corresponding `BaseTunnelHandler`
         method (no `self`).
-
-        The same effect is available via attribute assignment:
-        `tunnel.on_<event_name> = fn`.
 
         Args:
             event_name (str): Name of the event method to override.
@@ -537,24 +531,123 @@ class Tunnel:
         """
         setattr(self.__eventHandler, event_name, callback)
 
-    # `tunnel.on_<event> = fn` is sugar for `tunnel.add_callback("<event>", fn)`.
-    # The interception happens here so we don't have to enumerate event names
-    # as default attributes on Tunnel; everything still lives on the underlying
-    # handler instance.
-    def __setattr__(self, name, value):
-        if name.startswith("on_"):
-            handler = self.__dict__.get("_Tunnel__eventHandler")
-            if handler is not None:
-                setattr(handler, name[3:], value)
-                return
-        super().__setattr__(name, value)
+    # ------------------------------------------------------------------
+    # Per-event callback properties.
+    #
+    # Each property reads/writes the matching method on the underlying
+    # event-handler instance. Setting one shadows the BaseTunnelHandler
+    # default (or whatever a custom eventClass provided); reading returns
+    # the currently bound function — either the user's callback or the
+    # default handler method.
+    # ------------------------------------------------------------------
 
-    def __getattr__(self, name):
-        if name.startswith("on_"):
-            handler = self.__dict__.get("_Tunnel__eventHandler")
-            if handler is not None:
-                return getattr(handler, name[3:])
-        raise AttributeError(name)
+    @property
+    def on_tunnel_established(self):
+        """Callback fired when forwardings are successfully established."""
+        return self.__eventHandler.tunnel_established
+
+    @on_tunnel_established.setter
+    def on_tunnel_established(self, callback):
+        self.__eventHandler.tunnel_established = callback
+
+    @property
+    def on_tunnel_failed(self):
+        """Callback fired when forwardings could not be established."""
+        return self.__eventHandler.tunnel_failed
+
+    @on_tunnel_failed.setter
+    def on_tunnel_failed(self, callback):
+        self.__eventHandler.tunnel_failed = callback
+
+    @property
+    def on_additional_forwarding_succeeded(self):
+        """Callback fired when an additional forwarding completes."""
+        return self.__eventHandler.additional_forwarding_succeeded
+
+    @on_additional_forwarding_succeeded.setter
+    def on_additional_forwarding_succeeded(self, callback):
+        self.__eventHandler.additional_forwarding_succeeded = callback
+
+    @property
+    def on_additional_forwarding_failed(self):
+        """Callback fired when an additional forwarding fails."""
+        return self.__eventHandler.additional_forwarding_failed
+
+    @on_additional_forwarding_failed.setter
+    def on_additional_forwarding_failed(self, callback):
+        self.__eventHandler.additional_forwarding_failed = callback
+
+    @property
+    def on_forwardings_changed(self):
+        """Callback fired when the forwarding list changes."""
+        return self.__eventHandler.forwardings_changed
+
+    @on_forwardings_changed.setter
+    def on_forwardings_changed(self, callback):
+        self.__eventHandler.forwardings_changed = callback
+
+    @property
+    def on_disconnected(self):
+        """Callback fired when the tunnel is disconnected by the server."""
+        return self.__eventHandler.disconnected
+
+    @on_disconnected.setter
+    def on_disconnected(self, callback):
+        self.__eventHandler.disconnected = callback
+
+    @property
+    def on_tunnel_error(self):
+        """Callback fired on tunnel errors (recoverable or not)."""
+        return self.__eventHandler.tunnel_error
+
+    @on_tunnel_error.setter
+    def on_tunnel_error(self, callback):
+        self.__eventHandler.tunnel_error = callback
+
+    @property
+    def on_will_reconnect(self):
+        """Callback fired before the SDK attempts to reconnect."""
+        return self.__eventHandler.will_reconnect
+
+    @on_will_reconnect.setter
+    def on_will_reconnect(self, callback):
+        self.__eventHandler.will_reconnect = callback
+
+    @property
+    def on_reconnecting(self):
+        """Callback fired for each reconnection attempt."""
+        return self.__eventHandler.reconnecting
+
+    @on_reconnecting.setter
+    def on_reconnecting(self, callback):
+        self.__eventHandler.reconnecting = callback
+
+    @property
+    def on_reconnection_completed(self):
+        """Callback fired when a reconnection succeeds."""
+        return self.__eventHandler.reconnection_completed
+
+    @on_reconnection_completed.setter
+    def on_reconnection_completed(self, callback):
+        self.__eventHandler.reconnection_completed = callback
+
+    @property
+    def on_reconnection_failed(self):
+        """Callback fired after the SDK exhausts reconnection attempts."""
+        return self.__eventHandler.reconnection_failed
+
+    @on_reconnection_failed.setter
+    def on_reconnection_failed(self, callback):
+        self.__eventHandler.reconnection_failed = callback
+
+    @property
+    def on_usage_update(self):
+        """Callback fired when the server pushes a usage update."""
+        return self.__eventHandler.usage_update
+
+    @on_usage_update.setter
+    def on_usage_update(self, callback):
+        self.__eventHandler.usage_update = callback
 
     def start_usage_update(self):
         """
