@@ -1,459 +1,354 @@
-# Documentation for `pinggy`
+# Pinggy SDK — API Reference
+
+A hand-curated reference for the public surface of the `pinggy` package.
+For a quick-start overview see the
+[PyPI description](./PyPI_Description.md); for product-level concepts see
+<https://pinggy.io/docs>.
+
+> Anything not documented here (legacy `tcp_forward_to` / `udp_forward_to`
+> properties, `connect` / `request_primary_forwarding` / `serve_tunnel`
+> methods, `Channel` class, `advanced_parsing`, `insecure`, `ssl`,
+> `sni_server_name`, etc.) is either internal or kept only as a
+> compatibility shim for code written against pre-0.1.0 releases. Do not
+> rely on it for new development.
+
+## Contents
+
+- [Shortcut functions](#shortcut-functions)
+  - [`start_tunnel`](#start_tunnel)
+  - [`start_udptunnel`](#start_udptunnel)
+- [`Tunnel`](#tunnel)
+  - [Constructor](#constructor)
+  - [Lifecycle](#lifecycle)
+  - [Forwardings](#forwardings)
+  - [URLs and state](#urls-and-state)
+  - [Authentication and access control](#authentication-and-access-control)
+  - [HTTP request behaviour](#http-request-behaviour)
+  - [Header rewriting](#header-rewriting)
+  - [Local-server TLS](#local-server-tls)
+  - [Web debugger](#web-debugger)
+  - [Auto-reconnect](#auto-reconnect)
+  - [Usage updates](#usage-updates)
+  - [Server greeting](#server-greeting)
+  - [Per-event callbacks](#per-event-callbacks)
+- [`BaseTunnelHandler`](#basetunnelhandler)
+- [`TunnelState`](#tunnelstate)
+- [Exceptions](#exceptions)
+- [Logging and version helpers](#logging-and-version-helpers)
+
+---
+
+## Shortcut functions
+
+The two `start_*` helpers build a `Tunnel`, configure it from kwargs, and
+launch it in a background thread. Each blocks until the tunnel is
+established (so `tunnel.urls` is populated) or raises `RuntimeError` if
+the tunnel fails to start.
+
+### `start_tunnel`
+
+```python
+pinggy.start_tunnel(
+    forwardto = 80,
+    type = "http",
+    token = "",
+    force = False,
+    ipwhitelist = None,
+    basicauth = None,
+    bearerauth = None,
+    headermodification = None,
+    webdebuggerport = 0,
+    xff = False,
+    httpsonly = False,
+    fullrequesturl = False,
+    allowpreflight = False,
+    reverseproxy = True,
+    serveraddress = "a.pinggy.io:443",
+    udpforwardto = None,
+    localservertls = False,
+    autoreconnect = False,
+    eventclass = BaseTunnelHandler,
+) -> Tunnel
+```
+
+| Argument             | Type                                | Default              | Description                                                                                                                                          |
+| -------------------- | ----------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `forwardto`          | `int \| str`                        | `80`                 | Local destination. Accepts a port (`8080`), `"host:port"`, or `"schema://host:port"` (schemas: `http`, `https`, `tcp`, `tls`, `tlstcp`, `udp`).      |
+| `type`               | `str`                               | `"http"`             | Tunnel type. One of `http`, `tcp`, `tls`, `tlstcp`, `udp`.                                                                                            |
+| `token`              | `str`                               | `""`                 | Pinggy access token (from <https://dashboard.pinggy.io>). Required for paid features.                                                                |
+| `force`              | `bool`                              | `False`              | Stop any existing tunnel that uses the same token before connecting.                                                                                  |
+| `ipwhitelist`        | `list[str] \| str`                  | `None`               | IPv4/IPv6 addresses or CIDRs allowed to reach the tunnel.                                                                                            |
+| `basicauth`          | `dict[str, str]`                    | `None`               | `{username: password}` map for HTTP Basic Auth.                                                                                                      |
+| `bearerauth`         | `list[str] \| str`                  | `None`               | Accepted bearer tokens. May be combined with `basicauth`.                                                                                            |
+| `headermodification` | `list[dict] \| list[str]`           | `None`               | Header rewrite rules (HTTP only). See [header rewriting](#header-rewriting).                                                                          |
+| `webdebuggerport`    | `int`                               | `0`                  | Port for the local web debugger UI. `0` disables it.                                                                                                  |
+| `xff`                | `bool`                              | `False`              | Add `X-Forwarded-For` to forwarded requests.                                                                                                          |
+| `httpsonly`          | `bool`                              | `False`              | Reject plain-HTTP connections; redirect to HTTPS.                                                                                                    |
+| `fullrequesturl`     | `bool`                              | `False`              | Add `X-Pinggy-Url` carrying the original request URL.                                                                                                |
+| `allowpreflight`     | `bool`                              | `False`              | Let CORS preflight requests through without auth.                                                                                                    |
+| `reverseproxy`       | `bool`                              | `True`               | When `False`, forward the original `Host` header to the upstream instead of rewriting it.                                                            |
+| `serveraddress`      | `str`                               | `"a.pinggy.io:443"`  | Pinggy edge server.                                                                                                                                  |
+| `udpforwardto`       | `int \| str`                        | `None`               | Add a parallel UDP forwarding alongside the primary (TCP/HTTP/TLS) one.                                                                              |
+| `localservertls`     | `bool \| str`                       | `False`              | Speak TLS to the local upstream. `True` uses SNI `localhost`; pass a string to override the SNI name.                                                |
+| `autoreconnect`      | `bool`                              | `False`              | Reconnect automatically on transient drops.                                                                                                          |
+| `eventclass`         | subclass of `BaseTunnelHandler`     | `BaseTunnelHandler`  | Handler class instantiated for the tunnel. Override its methods, or use `tunnel.add_callback(...)` / `tunnel.on_<event> = ...` instead of subclassing. |
+
+**Returns:** a started `Tunnel`. Raises `RuntimeError` if the tunnel fails to start.
+
+### `start_udptunnel`
+
+```python
+pinggy.start_udptunnel(
+    forwardto,
+    token = "",
+    force = False,
+    ipwhitelist = None,
+    webdebuggerport = 4300,
+    serveraddress = "a.pinggy.io:443",
+    autoreconnect = False,
+    eventclass = BaseTunnelHandler,
+) -> Tunnel
+```
+
+UDP-only convenience wrapper. Arguments behave the same as in
+`start_tunnel`. Use `start_tunnel(..., udpforwardto=...)` when you need
+both UDP and a primary TCP/HTTP/TLS forwarding on the same tunnel.
+
+---
+
+## `Tunnel`
+
+Lower-level handle. Build it manually when you need more control than the
+shortcuts offer (multiple forwardings, callback registration without a
+handler subclass, dynamic reconfiguration before `start()`, etc.).
+
+### Constructor
+
+```python
+pinggy.Tunnel(
+    server_address = "a.pinggy.io:443",
+    eventClass = BaseTunnelHandler,
+)
+```
+
+| Argument         | Type                              | Default              | Description                                       |
+| ---------------- | --------------------------------- | -------------------- | ------------------------------------------------- |
+| `server_address` | `str`                             | `"a.pinggy.io:443"`  | Pinggy edge server.                               |
+| `eventClass`     | subclass of `BaseTunnelHandler`   | `BaseTunnelHandler`  | Class instantiated and bound to this tunnel.      |
+
+A fresh `Tunnel` is in `Initial` state; configure it, then call
+[`start()`](#lifecycle).
+
+### Lifecycle
+
+| Member                                                  | Description                                                                                                                                                                                                                                  |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `start(thread=False, block_until_ready=True)`           | Start the tunnel. With `thread=False` blocks for the entire tunnel lifetime. With `thread=True` runs the tunnel on a worker; by default still blocks until the tunnel is established or fails (raises `RuntimeError`). Pass `block_until_ready=False` to return as soon as the worker is launched. |
+| `wait()`                                                | Block until the worker thread exits. Safe no-op if the tunnel was started synchronously.                                                                                                                                                      |
+| `stop()`                                                | Stop the tunnel. Joins the worker thread if called from a different thread.                                                                                                                                                                   |
+| `is_active() -> bool`                                   | Whether the tunnel is currently alive.                                                                                                                                                                                                        |
+
+After `start()` succeeds, configuration setters raise — reconfigure on a
+new `Tunnel`.
 
-## Class `BaseTunnelHandler`
+### Forwardings
+
+A tunnel must have at least one *primary* forwarding. The first
+`add_forwarding` call (or the `forwardings` setter) creates the primary;
+subsequent calls add *additional* forwardings.
+
+| Member                                                                  | Description                                                                                                                                                                          |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `add_forwarding(address, type=None, listen_address=None)`               | Add a forwarding rule. `address` accepts `"port"`, `":port"`, `"host:port"`, or `"schema://host:port"`. `type` is one of `http`/`tcp`/`tls`/`tlstcp`/`udp` (default `http`). `listen_address` is the optional remote bind on the Pinggy server (`"host"`, `"host:port"`, or `":port"`). |
+| `forwardings` *(property)*                                              | Get the current forwardings as a JSON string. Set with a single address (`str` / `int`) or a list of dicts (`{"address": ..., "type": ..., "listenAddress": ...}`). Cannot be mixed with `add_forwarding` after the tunnel is started. |
 
-Represent basic and default handler for :class:`Tunnel`. It provide default handler
-for various event triggered by the Tunnel. It is expected that all the event handler
-would extend this event handler.
+### URLs and state
+
+| Member                          | Description                                                                                          |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `urls` *(read-only property)*   | List of public URLs assigned by the server once the tunnel is established. Empty before that point.   |
+| `state` *(read-only property)*  | Current `pinggy.pylib.TunnelState` value (see [`TunnelState`](#tunnelstate)).                         |
+| `server_address` *(property)*   | Pinggy edge server `host:port`.                                                                       |
 
-### `BaseTunnelHandler.additional_forwarding_failed(self, bindAddr, forwardTo, forwardingType, err)`
+### Authentication and access control
 
-Triggers when additional forwarding fails
+| Member                                | Description                                                                              |
+| ------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `token` *(property)*                  | Pinggy access token. Required for paid features.                                          |
+| `force` *(property)*                  | Stop any existing tunnel using the same token at connect time.                            |
+| `basicauth` *(property)*              | `{username: password}` map (or list of single-pair dicts) for HTTP Basic Auth.            |
+| `bearerauth` *(property)*             | List of accepted bearer tokens (or a single string).                                      |
+| `ipwhitelist` *(property)*            | List of IPs / CIDRs allowed to reach the tunnel.                                          |
 
-### `BaseTunnelHandler.additional_forwarding_succeeded(self, bindAddr, forwardTo, forwardingType)`
+### HTTP request behaviour
 
-Triggers when additional forwarding completes successfully. Learn more at
-https://pinggy.io/docs/http_tunnels/multi_port_forwarding/.
+These flags only affect HTTP-type tunnels.
+
+| Member                              | Description                                                                                                          |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `xff` *(bool property)*             | Add `X-Forwarded-For`.                                                                                              |
+| `httpsonly` *(bool property)*       | Reject plain HTTP; redirect to HTTPS.                                                                                |
+| `fullrequesturl` *(bool property)*  | Add `X-Pinggy-Url` carrying the original full request URL.                                                          |
+| `allowpreflight` *(bool property)*  | Let CORS preflight requests through without authentication.                                                          |
+| `reverseproxy` *(bool property)*    | Default `True` (rewrite `Host` to the upstream's). Set `False` to forward the original `Host` instead.                |
+
+### Header rewriting
+
+| Member                                       | Description                                                                                                                                                          |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `headermodification` *(property)*            | Full list of header rules. Accepts a list of dicts (`{"type": "add"\|"update"\|"remove", "key": ..., "value": [...]}`) or a list of shorthand strings (`"a:Key:Val"`, `"u:Key:Val"`, `"r:Key"`). |
+| `add_header(name, value)`                    | Append an `add` rule.                                                                                                                                                |
+| `update_header(name, value)`                 | Append an `update` rule.                                                                                                                                             |
+| `remove_header(name)`                        | Append a `remove` rule.                                                                                                                                              |
+
+See <https://pinggy.io/docs/advanced/live_header/> for semantics.
 
-**This is experimental and not well tested**
-
-Agrs:
-    bindAddr (str): remote address where connection can be sent.
-    forwardTo (str): address to which connection would forwarded. It is equivalen to `tcp_forward_to`.
-
-### `BaseTunnelHandler.disconnected(self, msg)`
-
-Triggers when tunnel got disconnected by the server.
-
-Agrs:
-    msg (str): disconnection reason.
-
-### `BaseTunnelHandler.forwardings_changed(self, forwarding)`
-
-Triggeres whenever some changes happens to the forwarding list. It basically contains list of mappings between
-public url and local forwarding. This function primarily triggers everytime some forwarding completed successfully.
-
-### `BaseTunnelHandler.get_tunnel(self)`
-
-Returns the tunnel object
-**Returns**:
-- **Tunnel**: the tunnel object
-
-### `BaseTunnelHandler.handle_channel(self)`
-
-**Do not return anything but False**
-
-### `BaseTunnelHandler.new_channel(self, channel: pinggy.pylib.Channel)`
-
-**Do not use**
-
-### `BaseTunnelHandler.reconnecting(self, retry_cnt)`
-
-Triggers whenever sdk tries to reconnect the tunnel.
-
-### `BaseTunnelHandler.reconnection_completed(self)`
-
-Triggers whenever new tunnel established.
-
-### `BaseTunnelHandler.reconnection_failed(self, retry_cnt)`
-
-Triggers when the sdk exhaust reconnect attempt and unable to connect at all. This is an unrecoverable error.
-
-### `BaseTunnelHandler.tunnel_error(self, errorNo, msg, recoverable)`
-
-In case some error occures. Errors could be recoverable.
-
-**Arguments**:
-- **errorNo (int)**: internal error no. Currently not useful for user.
-- **msg (str)**: description
-- **recoverable (bool)**: whether a error is recoverable or not. Application should ignore recoverable errors.
-
-### `BaseTunnelHandler.tunnel_established(self, url: list[str])`
-
-Triggers when pre-configured forwardings are successfully completed.
-Know more about forwarding at
-https://pinggy.io/docs/http_tunnels/multi_port_forwarding/.
-
-Once this step done, one can fetch the urls from the tunnel.
-
-### `BaseTunnelHandler.tunnel_failed(self, msg)`
-
-Triggers when pre-configured forwardings are failed. The reason is present in the msg.
-
-Agrs:
-    msg (str): the reason why it failed.
-
-### `BaseTunnelHandler.usage_update(self, usages)`
-
-Server provides usages update to the client. Application have to turn it on by calling `start_usage_update` function
-
-### `BaseTunnelHandler.will_reconnect(self, messages)`
-
-Triggers when existing tunnel drops and it is configured to reconnect automatically.
-
-## Class `PinggyNativeLoaderError`
-
-Common base class for all non-exit exceptions.
-
-## Class `PinggyRemovedPropertyError`
-
-Raised when accessing a removed property.
-
-## Class `Tunnel`
-
-The primary class which provides the tunnel.
-
-There are two simple way to start a tunnel. If we want to forward local apache server listening on
-port 80 to the internet we can start tunnel via following:
-
-Example 1:
-
-    >>> import pinggy
-    >>> tunnel = pinggy.Tunnel()
-    >>> tunnel.forwardings = "localhost:80"
-    >>> tunnel.start(True)
-    >>> tunnel.urls
-
-Example 2:
-
-    >>> import pinggy
-    >>> tunnel = pinggy.Tunnel()
-    >>> tunnel.forwardings = "localhost:80"
-    >>> tunnel.start()
-
-### `Tunnel.add_forwarding(self, address: str, type: str | None = None, listen_address: str | None = None)`
-
-Adds a new forwarding rule to the tunnel configuration.
-
-This function allows you to specify how incoming connections to a remote `listen_address`
-on the Pinggy server should be forwarded to a local `address` on your local machine.
-
-**Arguments**:
-- **address (str)**: The local address to forward to.
-  This can be a URL (e.g., "http://localhost:3000"), an IP address
-  (e.g., "127.0.0.1:8000"), or just a port (e.g., ":5000").
-  If the schema (e.g., "http://") and host are omitted, "localhost"
-  is assumed. For example, ":3000" becomes "http://localhost:3000"
-  for HTTP forwarding.
-  If `type` is "http" and `address` specifies an "https"
-  schema (e.g., "https://localhost:443"), this implicitly enables
-  `local_server_tls` for this specific forwarding rule.
-
-- **type (str, optional)**: The type of forwarding.
-  Valid types are "http", "tcp", "udp", "tls", "tlstcp".
-  If an empty string or None is provided, "http" is assumed.
-
-- **listen_address (str, optional)**: The remote address to bind to.
-  This can be a domain name, a domain:port combination,
-  or just a port. Examples: "example.pinggy.io",
-  "example.pinggy.io:8080", ":80".
-  If empty string or None, the server will assign a default binding.
-  The hostname is ignored for TCP and UDP tunnels.
-  Any schema provided will be ignored.
-
-Examples:
-    >>> tunnel.add_forwarding(address="localhost:8000")
-
-### `Tunnel.add_header(self, header_name, new_value)`
-
-*No docstring provided.*
-
-### `Tunnel.advanced_parsing`
-
-keep it true. Free tunnels won't work without it.
-
-### `Tunnel.allowpreflight`
-
-bool: allow preflight requests to pass through without processing
-
-### `Tunnel.argument`
-
-str: tunnel arguments for header manipulation and others.
-
-### `Tunnel.auto_reconnect`
-
-Set auto_reconnecting tunnel. It is required for long running tunnel.
-
-### `Tunnel.basicauth`
-
-dict[str, str]|None: List of username and correstponding password.
-
-### `Tunnel.bearerauth`
-
-list[str]|None: list of key for bearer authentication
-
-### `Tunnel.current_usages`
-
-Get the usage.
-
-### `Tunnel.force`
-
-bool: force flag in tunnel that terminates any existing tunnel with the same token.
-
-### `Tunnel.forwardings`
-
-Retrieves the forwarding rules (as a JSON string) from the tunnel config.
-
-### `Tunnel.fullrequesturl`
-
-bool: request full url. if this flag is set, full original url would be pass through `X-Pinggy-Url` header in the request
-
-### `Tunnel.greeting_msgs`
-
-Get the greeting msg for the tunnel. This can be retrieved only after tunnel establishment.
-
-### `Tunnel.headermodification`
-
-list[str]|None: list of header modifications. Check https://pinggy.io/docs/advanced/live_header/ for more details
-
-### `Tunnel.httpsonly`
-
-bool: whether https only is set or not
-
-### `Tunnel.insecure`
-
-Keep it true. Production tunnel doesn't works without it.
-
-### `Tunnel.ipwhitelist`
-
-list[str]|None: List of IP/IP ranges that allowed to connect to the tunnel. SDK does not verify the IP
-
-### `Tunnel.is_active(self)`
-
-Check if tunnel is active or not.
-
-### `Tunnel.localservertls`
-
-str: return current localservertls config,
-
-### `Tunnel.max_reconnect_attempts`
-
-Set number of connection attempt before it give up. Setting this to `0` means infinite attempts.
-
-### `Tunnel.reconnect_interval`
-
-Set the interval in seconds between two reconnection attempts.
-
-### `Tunnel.remove_header(self, header_name)`
-
-*No docstring provided.*
-
-### `Tunnel.request_additional_forwarding(self, bindAddr, forwardTo, forwardingType='http')`
-
-Once primary forwarding is done, user can request additional forwarding for other ports.
-
-More details at: https://pinggy.io/docs/http_tunnels/multi_port_forwarding/.
-
-### `Tunnel.reverseproxy`
-
-"bool: enables reverseproxy mode. default is true.
-
-### `Tunnel.server_address`
-
-str: pinggy server address. The default server address is `a.pinggy.io`. You can also add the
-    port as follows: `a.pinggy.io:443`.
-
-### `Tunnel.sni_server_name`
-
-Do not modify unless instructed by the pinggy developers.
-
-### `Tunnel.ssl`
-
-Keep it true. Production tunnel doesn't works without ssl.
-
-### `Tunnel.start(self, thread=False)`
-
-Start the tunnel with the provided configuration. This is a blocking call.
-It does not return unless tunnel stopped externally or some error occures.
-
-**Arguments**:
-- **thread (bool)**: Whether to run the start tunnel in a new thread. Default is False
-
-### `Tunnel.start_usage_update(self)`
-
-Start usage update. It would start puching update via the callback
-
-### `Tunnel.start_web_debugging(self, port=4300)`
-
-Start the web debugger. All the request would be handled internally.
-
-Call this function after primary forwarding completed successfully.
-
-### `Tunnel.state`
-
-libpinggy maintain states for each tunnels. Application can fetch these state for its own use.
-
-### `Tunnel.stop(self)`
-
-Stops the running tunnel.
-
-### `Tunnel.stop_usage_update(self)`
-
-Stop usages update.
-
-### `Tunnel.token`
-
-str: Token for the tunnel. One can it from `dashboard.pinggy.io`
-
-### `Tunnel.update_header(self, header_name, new_value)`
-
-*No docstring provided.*
-
-### `Tunnel.urls`
-
-list(str): lists of public urls for the running tunnel (read only)
-
-### `Tunnel.wait(self)`
-
-Wait for tunnel to stop. It does not stop the tunnel though.
-
-### `Tunnel.webdebugger`
-
-*No docstring provided.*
-
-### `Tunnel.webdebugger_addr`
-
-*No docstring provided.*
-
-### `Tunnel.webdebugger_port`
-
-*No docstring provided.*
-
-### `Tunnel.xff`
-
-bool: whethere xff is set or not.
-
-### `build_os()`
-
-Get the detail about the build operating system.
-
-**Returns**:
-- **str**: os detail.
-
-### `build_timestamp()`
-
-Function to get the build timestamp as per the build-system.
-
-**Returns**:
-- **str**: build timestamp.
-
-### `disableLog()`
-
-Disable logging by the native library.
-
-### `disable_log()`
-
-Disable logging by the native library.
-
-### `enable_log()`
-
-Enable libpinggy log.
-
-### `git_commit()`
-
-Function to get the git commit hash of the source code.
-
-**Returns**:
-- **str**: git commit hash.
-
-### `libc_version()`
-
-Get the libc version of the native. This information is accurate only for linux operating system.
-
-**Returns**:
-- **str**: libc version.
-
-### `setLogPath(path)`
-
-Set path where native library print its log. Use this function only if requires.
-To disable native library logging completly, use `disableLog` function.
-
-**Arguments**:
-- **path (str)**: New log path. Path needs to have write permission.
-
-### `set_log_path(path)`
-
-Set path where native library print its log. Use this function only if requires.
-To disable native library logging completly, use `disableLog` function.
-
-**Arguments**:
-- **path (str)**: New log path. Path needs to have write permission.
-
-### `start_tunnel(forwardto: int | str = 80, type: str = 'http', token: str = '', force: bool = False, ipwhitelist: list[str] | str | None = None, basicauth: dict[str, str] | None = None, bearerauth: list[str] | str | None = None, headermodification: list[str] | None = None, webdebuggerport: int = 0, xff: bool = False, httpsonly: bool = False, fullrequesturl: bool = False, allowpreflight: bool = False, reverseproxy: bool = True, serveraddress: str = 'a.pinggy.io:443', udpforwardto: int | str | None = None, localservertls: str | bool = False, autoreconnect: bool = False, eventclass=<class 'pinggy.pylib.BaseTunnelHandler'>)`
-
-Start a tunnel inside a new thread and get reference to the tunnel.
-
-**Arguments**:
-- **forwardto**: address of local server. Only port can be provided incase of local server. Example: 80, "localhost:80".
-  The format is [schema://][localhost:]port. Schema can be one of `http`, `https`, `tcp`, `tls`, `tlstcp`, `udp`. Default is `http`.
-  `https` means local server tls.
-
-- **type**: Type of tunnel. One of `http`, `tcp`, `tls`, `tlstcp`, `udp`. Default is `http`.
-
-- **token**: User token. Get it from https://dashboard.pinggy.io
-
-- **force**: enable of disable force flag. Enabling it would cause to stop any existing tunnel with same token.
-
-- **ipwhitelist**: list of ipaddresses that are allowed to connect to the tunnel. Example: ["2301::c4f:45c2:57e6:e637:7f1a/128","23.15.30.223/32"].
-  Be carefull about the ipv6 syntax
-
-- **basicauth**: dictionary of username:password. This dictionary be used for basic authentication. Example: {"hello": "world"}
-
-- **bearerauth**: list of keys that would be used for bearer key authentication. Both basicauth and bearerauth can be used together.
-  Example: ["1234"]
-
-- **headermodification**: list of header modification that would be added. More detail at https://pinggy.io/docs/advanced/live_header/
-  Example: [{"type": "remove", "key": "Accept"}, {"type": "update", "key": "UserAgent", "value" :["PinggyTestServer 1.2.3"]}], ["r:Accept", "u:UserAgent:PinggyTestServer 1.2.3"]
-
-- **webdebuggerport**: Webdebugging port. Webdebugging would start only if valid port is provided. Example: 4300
-
-- **localservertls**: This flag enables TLS for the local server. If it is a string, it would be used as the server name for SNI. If it is True, it would be set to "localhost" by default.
-  If it is False, it would be set to None. Default: False
-
-- **xff**: With this flag, pinggy adds `X-Forwarded-For` with the request header.
-
-- **httpsonly**: This flag make sure that the visitor uses only the https. Any request to http would the redirected to https url.
-
-- **fullrequesturl**: Pinggy server adds the original url that is requested in a header `X-Pinggy-Url ` with the request.
-
-- **allowpreflight**: With this flag, pinggy detects and allow preflight request without processing so that the server can handle it.
-
-- **reverseproxy**: Pinggy by default runs in reverse proxy mode. However, it can be turned off by setting this flag `False`
-
-- **serveraddress**: User can set the server address to which pinggy would connect. Default: `a.pinggy.io:443`.
-
-- **udpforwardto**: same as forwardto, however, it forwards a UDP destination alongside the primary forwarding.
-  Useful when one tunnel needs to expose both TCP and UDP. Use `start_udptunnel` for udp-only tunnels.
-
-- **autoreconnect**: automatically reconnects when tunnel failes. It happens silently. So, to detect reconnection, one need to override the event handler.
-
-- **eventclass**: event handler class. Object would be created for the tunnel.
-
-### `start_udptunnel(forwardto: int | str, token: str = '', force: bool = False, ipwhitelist: list[str] | str | None = None, webdebuggerport: int = 4300, serveraddress: str = 'a.pinggy.io:443', autoreconnect: bool = False, eventclass=<class 'pinggy.pylib.BaseTunnelHandler'>)`
-
-Start an udp tunnel inside a new thread and get reference to the tunnel.
-
-**Arguments**:
-- **forwardto**: address of local server. Only port can be provided incase of local server. Example: 53, "localhost:53".
-
-- **token**: User token. Get it from https://dashboard.pinggy.io
-
-- **force**: enable of disable force flag. Enabling it would cause to stop any existing tunnel with same token.
-
-- **ipwhitelist**: list of ipaddresses that are allowed to connect to the tunnel. Example: ["2301::c4f:45c2:57e6:e637:7f1a/128","23.15.30.223/32"].
-
-- **webdebuggerport**: Webdebugging port. Webdebugging would start only if valid port is provided. Example: 4300
-
-- **serveraddress**: User can set the server address to which pinggy would connect. Default: `a.pinggy.io:443`.
-
-- **autoreconnect**: automatically reconnects when tunnel failes. It happens silently. So, to detect reconnection, one need to override the event handler.
-
-- **eventclass**: event handler class. Object would be created for the tunnel.
-
-### `version()`
-
-Function to know the native library version.
-
-**Returns**:
-- **str**: libpinggy version.
-
+### Local-server TLS
+
+| Member                              | Description                                                                                                                            |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `localservertls` *(property)*       | Speak TLS to the local upstream. Set to a string to use it as the SNI name; set to a truthy non-string to default to `"localhost"`.    |
+
+### Web debugger
+
+| Member                                       | Description                                                                                                                                                                                |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `webdebugger` *(bool property)*              | Enable the local debugger UI.                                                                                                                                                              |
+| `webdebugger_addr` *(property)*              | Bind address (`host:port`) for the debugger UI. Setting `webdebugger_port` rewrites this to `localhost:<port>`.                                                                            |
+| `webdebugger_port` *(property)*              | Bind port for the debugger UI. Sets `webdebugger_addr` to `localhost:<port>`.                                                                                                              |
+| `start_web_debugging(port=4300)`             | Start the debugger after the tunnel is up (alternative to setting the property before `start()`).                                                                                          |
+
+### Auto-reconnect
+
+| Member                                  | Description                                                                              |
+| --------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `auto_reconnect` *(bool property)*      | Reconnect automatically on transient disconnects.                                         |
+| `max_reconnect_attempts` *(int)*        | Upper bound on retries. `0` means infinite.                                               |
+| `reconnect_interval` *(float, seconds)* | Delay between retries.                                                                    |
+
+### Usage updates
+
+When enabled, the server periodically pushes traffic-usage data via the
+`usage_update` event.
+
+| Member                       | Description                                                                                          |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `start_usage_update()`       | Subscribe to usage push events.                                                                       |
+| `stop_usage_update()`        | Unsubscribe.                                                                                         |
+| `current_usages` *(property)*| Current usage snapshot polled from the native library. Returns a parsed `dict`, or `None` if unavailable. |
+
+### Server greeting
+
+| Member                            | Description                                                              |
+| --------------------------------- | ------------------------------------------------------------------------ |
+| `greeting_msgs` *(read-only)*     | Greeting strings sent by the server after the tunnel is established.      |
+
+### Per-event callbacks
+
+Either subclass [`BaseTunnelHandler`](#basetunnelhandler) and pass the
+class via `eventClass=` / `eventclass=`, or attach callables directly to
+the tunnel:
+
+```python
+tunnel.on_tunnel_established = lambda urls: print("up:", urls)
+tunnel.on_disconnected       = lambda msg:  print("bye:", msg)
+
+# Equivalent dynamic form:
+tunnel.add_callback("tunnel_failed", lambda msg: print("failed:", msg))
+```
+
+A callback registered on the tunnel takes precedence over a method of
+the same name on the handler class.
+
+| Member                                              | Description                                                                                                                                  |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `add_callback(event_name, callback)`                | Attach a callback for any handler-method name. Equivalent to `tunnel.on_<event_name> = callback`, but lets you pick the name at runtime.       |
+| `on_<event>` *(properties)*                         | Property aliases for the events listed under [`BaseTunnelHandler`](#basetunnelhandler) (e.g. `on_tunnel_established`, `on_disconnected`, …).   |
+
+---
+
+## `BaseTunnelHandler`
+
+Subclass and override the methods you care about. All string arguments
+arrive as `str` (utf-8 decoded); list arguments arrive as `list[str]`.
+
+```python
+class BaseTunnelHandler:
+    def get_tunnel(self) -> Tunnel
+```
+
+| Event method                                                            | Fires when                                                                                                          |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `tunnel_established(urls)`                                              | The tunnel and its primary forwarding are up. `urls` is a list of public URLs.                                       |
+| `tunnel_failed(msg)`                                                    | The handshake or initial forwarding fails. `msg` describes the failure.                                              |
+| `forwardings_changed(forwarding)`                                       | The set of active forwardings changed (e.g. an additional forwarding was added or removed).                          |
+| `additional_forwarding_succeeded(bind_addr, forward_to, forwarding_type)` | An additional forwarding was accepted by the server.                                                                  |
+| `additional_forwarding_failed(bind_addr, forward_to, forwarding_type, error)` | An additional forwarding was rejected by the server.                                                                  |
+| `disconnected(msg)`                                                     | The server closed the tunnel. `msg` carries the disconnect reason.                                                   |
+| `tunnel_error(error_no, msg, recoverable)`                              | Internal SDK / library error. `recoverable=True` means the SDK will attempt to recover; safe for the app to ignore.   |
+| `will_reconnect(messages)`                                              | Auto-reconnect is enabled and the SDK is about to start retrying.                                                    |
+| `reconnecting(retry_cnt)`                                               | A reconnect attempt is starting. `retry_cnt` is the 1-based attempt number.                                          |
+| `reconnection_completed()`                                              | A new tunnel is established after a reconnect.                                                                       |
+| `reconnection_failed(retry_cnt)`                                        | All reconnect attempts have been exhausted; this is unrecoverable.                                                  |
+| `usage_update(usages)`                                                  | The server pushed a new usage snapshot. Requires `start_usage_update()`.                                             |
+
+`get_tunnel()` returns the bound `Tunnel`.
+
+---
+
+## `TunnelState`
+
+`pinggy.pylib.TunnelState` (an `enum.Enum`) is what `Tunnel.state`
+returns. Values:
+
+| Name                  | Meaning                                                                                |
+| --------------------- | -------------------------------------------------------------------------------------- |
+| `Invalid`             | Tunnel object is in an unusable state.                                                  |
+| `Initial`             | Constructed but not started.                                                            |
+| `Started`             | `start()` has been called.                                                              |
+| `Connecting`          | Establishing the underlying TCP/TLS connection.                                         |
+| `Connected`           | Underlying connection is up; protocol handshake has not run yet.                        |
+| `SessionInitiating`   | Negotiating the Pinggy session.                                                         |
+| `SessionInitiated`    | Pinggy session is ready.                                                                |
+| `Authenticating`      | Authenticating the user/token.                                                          |
+| `Authenticated`       | Authentication succeeded.                                                               |
+| `ForwardingInitiated` | Requesting the primary forwarding.                                                      |
+| `ForwardingSucceeded` | Forwarding active; this corresponds to the `tunnel_established` event.                  |
+| `ReconnectInitiated`  | A reconnect cycle has begun.                                                            |
+| `Reconnecting`        | Currently retrying.                                                                     |
+| `Stopped`             | `stop()` has been called.                                                               |
+| `Ended`               | Tunnel terminated; no further callbacks will fire.                                      |
+
+---
+
+## Exceptions
+
+| Exception                          | Raised when                                                                          |
+| ---------------------------------- | ------------------------------------------------------------------------------------ |
+| `pinggy.PinggyNativeLoaderError`   | The native `libpinggy` shared library cannot be located or loaded.                    |
+| `pinggy.PinggyRemovedPropertyError`| A property that no longer exists in the current SDK version is accessed.              |
+
+`Tunnel.start()` (and the `start_*` shortcuts) also raise built-in
+`RuntimeError` if `block_until_ready=True` and the tunnel fails to come
+up.
+
+---
+
+## Logging and version helpers
+
+Module-level functions on `pinggy`:
+
+| Function                 | Description                                                                                            |
+| ------------------------ | ------------------------------------------------------------------------------------------------------ |
+| `set_log_path(path)`     | Redirect native-library logs to `path`. The path must be writable.                                      |
+| `disable_log()`          | Suppress native-library logs entirely.                                                                  |
+| `enable_log()`           | Re-enable native-library logs after `disable_log()`.                                                    |
+| `version()`              | `libpinggy` library version string.                                                                     |
+| `git_commit()`           | Git commit hash baked into the native library.                                                          |
+| `build_timestamp()`      | Build timestamp of the native library.                                                                  |
+| `libc_version()`         | Linker / libc version reported by the native library (Linux only; placeholder on other platforms).      |
+| `build_os()`             | Build-host OS string for the native library.                                                            |
+
+The legacy camel-case spellings `setLogPath` / `disableLog` are kept as
+aliases for `set_log_path` / `disable_log`. Prefer the snake-case names
+in new code.
