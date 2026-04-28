@@ -6,6 +6,7 @@ import threading
 import json
 from enum import Enum
 import logging
+import typing
 
 logger = logging.getLogger(__name__)
 
@@ -202,7 +203,7 @@ class BaseTunnelHandler:
         """
         return self.tunnel
 
-    def tunnel_established(self, url : list[str]):
+    def tunnel_established(self, url: typing.List[str]):
         """
         Triggers when pre-configured forwardings are successfully completed.
         Know more about forwarding at
@@ -443,19 +444,34 @@ class Tunnel:
         logger.warning("Kindly don't use this method")
         core.pinggy_tunnel_start(self.__tunnelRef)
 
-    def start(self, thread=False):
+    def start(self, thread=False, block_until_ready=True):
         """
-        Start the tunnel with the provided configuration. This is a blocking call.
-        It does not return unless tunnel stopped externally or some error occures.
+        Start the tunnel with the provided configuration.
+
+        With `thread=False` this is a blocking call that returns only when the
+        tunnel stops or errors. With `thread=True` the tunnel runs in a
+        background thread; by default this method still blocks until the
+        tunnel has either been established (and `urls` is populated) or has
+        failed to start. Pass `block_until_ready=False` to return as soon as
+        the worker thread is launched.
 
         Args:
-            thread (bool): Whether to run the start tunnel in a new thread. Default is False
+            thread (bool): Whether to run the tunnel in a new thread. Default is False.
+            block_until_ready (bool): When `thread=True`, wait until the tunnel
+                is established or fails before returning. Ignored when
+                `thread=False`. Default is True.
+
+        Raises:
+            RuntimeError: If `block_until_ready=True` and the tunnel fails to
+                start.
         """
         self.__editableConfig = False
         if thread:
             t = threading.Thread(target=self.__start_resume)
             self.__thread = t
             t.start()
+            if block_until_ready:
+                self.__wait_until_started()
         else:
             self.__start_resume()
 
@@ -487,12 +503,9 @@ class Tunnel:
         if self.__thread is not None and self.__thread != threading.current_thread():
             self.__thread.join()
 
-    def wait_until_started(self, timeout=60):
+    def __wait_until_started(self, timeout=60):
         """
         Block until the tunnel has either been established or failed.
-
-        Useful after `start(thread=True)` to ensure `urls` is populated
-        before reading it from the calling thread.
 
         Args:
             timeout (float|None): Max seconds to wait. None waits forever.
@@ -1005,7 +1018,7 @@ class Tunnel:
     #////////////////////////////////
 
     @forwardings.setter
-    def forwardings(self, forwardings: int|str|list[dict]):
+    def forwardings(self, forwardings: typing.Union[int, str, typing.List[dict]]):
         """
         Sets multiple forwarding rules for the tunnel configuration.
 
@@ -1054,7 +1067,7 @@ class Tunnel:
         self.__newForwardingMode = True
         core.pinggy_config_reset_forwardings(self.__configRef)
 
-    def add_forwarding(self, address: str, type: str|None = None, listen_address: str|None = None):
+    def add_forwarding(self, address: str, type: typing.Optional[str] = None, listen_address: typing.Optional[str] = None):
         """
         Adds a new forwarding rule to the tunnel configuration.
 
@@ -1114,7 +1127,7 @@ class Tunnel:
         return json.loads(ipw)
 
     @ipwhitelist.setter
-    def ipwhitelist(self, ipwhitelist: list[str]|str):
+    def ipwhitelist(self, ipwhitelist: typing.Union[typing.List[str], str]):
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
         if type(ipwhitelist) == str:
@@ -1132,7 +1145,7 @@ class Tunnel:
         return json.loads(ba)
 
     @basicauth.setter
-    def basicauth(self, basicauth:  list[dict[str,str]]|dict[str,str]):
+    def basicauth(self, basicauth: typing.Union[typing.List[typing.Dict[str, str]], typing.Dict[str, str]]):
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
         if type(basicauth) == dict:
@@ -1150,7 +1163,7 @@ class Tunnel:
         return json.loads(ba)
 
     @bearerauth.setter
-    def bearerauth(self, bearerauth:  list[str]|str):
+    def bearerauth(self, bearerauth: typing.Union[typing.List[str], str]):
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
         if type(bearerauth) == str:
@@ -1186,7 +1199,7 @@ class Tunnel:
         return json.loads(ret)
 
     @headermodification.setter
-    def headermodification(self, headermodifications: list[dict[str, str]]):
+    def headermodification(self, headermodifications: typing.List[typing.Dict[str, str]]):
         if not self.__editableConfig:
             raise Exception("Tunnel is already connected, no modification allowed")
         if headermodifications is None:
@@ -1342,14 +1355,14 @@ class Tunnel:
 
 
 def start_tunnel(
-        forwardto: int|str = 80,
+        forwardto: typing.Union[int, str] = 80,
         type: str = "http",
         token: str = "",
         force: bool = False,
-        ipwhitelist: list[str]|str|None = None,
-        basicauth:  dict[str,str]|None = None,
-        bearerauth:  list[str]|str|None = None,
-        headermodification: list[str]|None = None,
+        ipwhitelist: typing.Optional[typing.Union[typing.List[str], str]] = None,
+        basicauth: typing.Optional[typing.Dict[str, str]] = None,
+        bearerauth: typing.Optional[typing.Union[typing.List[str], str]] = None,
+        headermodification: typing.Optional[typing.List[str]] = None,
         webdebuggerport: int = 0,
         xff: bool = False,
         httpsonly: bool = False,
@@ -1357,8 +1370,8 @@ def start_tunnel(
         allowpreflight: bool = False,
         reverseproxy: bool = True,
         serveraddress: str = "a.pinggy.io:443",
-        udpforwardto: int|str|None = None,
-        localservertls: str|bool = False,
+        udpforwardto: typing.Optional[typing.Union[int, str]] = None,
+        localservertls: typing.Union[str, bool] = False,
         autoreconnect: bool = False,
         eventclass = BaseTunnelHandler
 ):
@@ -1456,15 +1469,14 @@ def start_tunnel(
 
     # __start_tunnel(tun, webdebuggerport)
     tun.start(True)
-    tun.wait_until_started()
 
     return tun
 
 def start_udptunnel(
-        forwardto: int|str,
+        forwardto: typing.Union[int, str],
         token: str = "",
         force: bool = False,
-        ipwhitelist: list[str]|str|None = None,
+        ipwhitelist: typing.Optional[typing.Union[typing.List[str], str]] = None,
         webdebuggerport: int = 4300,
         serveraddress: str = "a.pinggy.io:443",
         autoreconnect: bool = False,
@@ -1512,7 +1524,6 @@ def start_udptunnel(
 
     # __start_tunnel(tun, webdebuggerport)
     tun.start(True)
-    tun.wait_until_started()
 
     return tun
 

@@ -1,4 +1,5 @@
 import inspect
+import threading
 import unittest
 from pinggy.pylib import BaseTunnelHandler, Tunnel, start_tunnel, start_udptunnel
 import time
@@ -380,6 +381,67 @@ class TestAddCallback(unittest.TestCase):
         self.assertEqual(tunnel.token, "hello")
         tunnel.scratch = 123  # arbitrary user attribute
         self.assertEqual(tunnel.scratch, 123)
+
+
+class TestStartBlockUntilReady(unittest.TestCase):
+    """
+    `Tunnel.start(thread=True)` should by default block until the tunnel is
+    established (so `urls` is populated) or raise on failure. Pass
+    `block_until_ready=False` to opt out and return as soon as the worker
+    thread is launched.
+    """
+
+    def _stub_start_resume(self, tunnel, fn):
+        # Replace the (name-mangled) private worker so start() does not try to
+        # actually connect. The stub runs on the worker thread that start()
+        # spawns.
+        tunnel._Tunnel__start_resume = fn
+
+    def test_start_thread_blocks_until_tunnel_established(self):
+        tunnel = Tunnel()
+
+        def fake_resume():
+            time.sleep(0.05)
+            tunnel._Tunnel__func_tunnel_established(None, 0, ["http://t.example"])
+
+        self._stub_start_resume(tunnel, fake_resume)
+        tunnel.start(thread=True)  # block_until_ready=True by default
+        self.assertEqual(tunnel.urls, ["http://t.example"])
+        tunnel._Tunnel__thread.join()
+
+    def test_start_thread_raises_runtime_error_on_failure(self):
+        tunnel = Tunnel()
+
+        def fake_resume():
+            time.sleep(0.05)
+            tunnel._Tunnel__func_tunnel_failed(None, 0, "auth bad")
+
+        self._stub_start_resume(tunnel, fake_resume)
+        with self.assertRaises(RuntimeError) as ctx:
+            tunnel.start(thread=True)
+        self.assertIn("auth bad", str(ctx.exception))
+        tunnel._Tunnel__thread.join()
+
+    def test_start_thread_block_until_ready_false_returns_immediately(self):
+        tunnel = Tunnel()
+        established = threading.Event()
+
+        def slow_resume():
+            time.sleep(0.5)
+            tunnel._Tunnel__func_tunnel_established(None, 0, ["http://t.example"])
+            established.set()
+
+        self._stub_start_resume(tunnel, slow_resume)
+        t0 = time.monotonic()
+        tunnel.start(thread=True, block_until_ready=False)
+        elapsed = time.monotonic() - t0
+        # Must return well before the worker's 0.5s sleep finishes.
+        self.assertLess(elapsed, 0.2)
+        # urls cannot be populated yet.
+        self.assertEqual(tunnel.urls, [])
+        # Let the worker finish so the test does not leak a live thread.
+        established.wait(2)
+        tunnel._Tunnel__thread.join()
 
 
 if __name__ == '__main__':
