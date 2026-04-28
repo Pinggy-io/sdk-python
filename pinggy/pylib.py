@@ -385,6 +385,9 @@ class Tunnel:
         self.tunnel_startup_messages                 = []
         self.server_address                         = server_address
 
+        self.__started_event                        = threading.Event()
+        self.__started_failure_msg                  = None
+
         self.__eventHandler                         = eventClass(self)
 
         self.__thread                               = None
@@ -483,6 +486,29 @@ class Tunnel:
         """Wait for tunnel to stop. It does not stop the tunnel though."""
         if self.__thread is not None and self.__thread != threading.current_thread():
             self.__thread.join()
+
+    def wait_until_started(self, timeout=60):
+        """
+        Block until the tunnel has either been established or failed.
+
+        Useful after `start(thread=True)` to ensure `urls` is populated
+        before reading it from the calling thread.
+
+        Args:
+            timeout (float|None): Max seconds to wait. None waits forever.
+
+        Returns:
+            bool: True if the tunnel was established, False on timeout.
+
+        Raises:
+            RuntimeError: If the tunnel failed to start.
+        """
+        signaled = self.__started_event.wait(timeout)
+        if not signaled:
+            return False
+        if self.__started_failure_msg is not None:
+            raise RuntimeError(f"Tunnel failed to start: {self.__started_failure_msg}")
+        return True
 
     def is_active(self):
         """Check if tunnel is active or not."""
@@ -706,11 +732,15 @@ class Tunnel:
         self.__continue_polling = False
         self.__tunnel_started = True
         self.__urls = urls
+        self.__started_failure_msg = None
+        self.__started_event.set()
         self.__eventHandler.tunnel_established(urls)
 
     def __func_tunnel_failed(self, user_data, tunnel_ref, msg):
         self.tunnel_startup_messages = [msg]
         self.__continue_polling = False
+        self.__started_failure_msg = msg
+        self.__started_event.set()
         self.__eventHandler.tunnel_failed(msg)
 
     def __func_additional_forwarding_succeeded(self, user_data, tunnel_ref, bind_addr, forward_to_addr, forwarding_type):
@@ -1426,6 +1456,7 @@ def start_tunnel(
 
     # __start_tunnel(tun, webdebuggerport)
     tun.start(True)
+    tun.wait_until_started()
 
     return tun
 
@@ -1481,6 +1512,7 @@ def start_udptunnel(
 
     # __start_tunnel(tun, webdebuggerport)
     tun.start(True)
+    tun.wait_until_started()
 
     return tun
 
