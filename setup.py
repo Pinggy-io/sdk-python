@@ -71,7 +71,7 @@ class custom_bdist_wheel(_bdist_wheel):
 
         finalPlatform = supported_platforms.get(self.plat_name, self.plat_name)
         if self.plat_name in supported_platforms:
-            return "cp310", "abi3", finalPlatform,
+            return "cp36", "abi3", finalPlatform,
 
         # Extracting OS and architecture from --plat-name={OS}-{architecture}
         if "-" in self.plat_name:
@@ -80,10 +80,10 @@ class custom_bdist_wheel(_bdist_wheel):
         # Returing wheel name parameters- impl_tag, abi_tag, plat_tag
         if plat.startswith("macosx"):
             return (
-                "cp310",
+                "cp36",
                 "abi3",
                 "macosx_11_0_universal2",
-            )  # dev_pinggy-1.0.0-cp310-abi3-macosx_11_0_universal2
+            )  # dev_pinggy-1.0.0-cp36-abi3-macosx_11_0_universal2
         # elif finalPlatform.startswith("linux"):
         #     return (
         #         "cp310",
@@ -97,7 +97,7 @@ class custom_bdist_wheel(_bdist_wheel):
         #         finalPlatform,
         #     )  # dev_pinggy-1.0.0-cp310-abi3-win-{architecture}
 
-        return "cp310", "abi3", self.plat_name
+        return "cp36", "abi3", self.plat_name
 
 
 def download_and_extract_files(system, arch, destination):
@@ -214,6 +214,7 @@ setup(
     long_description_content_type="text/markdown",
     author="Pinggy",
     license="Apache 2.0",
+    python_requires=">=3.6",
     distclass=BinaryDistribution,
     cmdclass={"bdist_wheel": custom_bdist_wheel},
     zip_safe=False,
