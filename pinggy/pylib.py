@@ -1356,7 +1356,7 @@ class Tunnel:
 
     @property
     def haproxy(self):
-        """str: HAProxy configuration for the tunnel. Empty string means it is not set."""
+        """str: HAProxy PROXY-protocol version to send to the local server, which is expected to be a HAProxy server. Empty string (default) disables it."""
         return core.pinggy_config_get_haproxy_len(self.__configRef)
 
     @haproxy.setter
@@ -1439,7 +1439,7 @@ def start_tunnel(
 
         autoreconnect: automatically reconnects when tunnel failes. It happens silently. So, to detect reconnection, one need to override the event handler.
 
-        haproxy: HAProxy configuration string for the tunnel. Empty string (default) leaves it unset.
+        haproxy: HAProxy PROXY-protocol version sent to the local server, which is expected to be a HAProxy server. Empty string (default) disables it.
 
         eventclass: event handler class. Object would be created for the tunnel.
     """
