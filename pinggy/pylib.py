@@ -1354,6 +1354,22 @@ class Tunnel:
         core.pinggy_config_set_reverse_proxy(self.__configRef, reverseproxy)
 
 
+    @property
+    def haproxy(self):
+        """str: HAProxy configuration for the tunnel. Empty string means it is not set."""
+        return core.pinggy_config_get_haproxy_len(self.__configRef)
+
+    @haproxy.setter
+    def haproxy(self, val: str):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        if val is None:
+            val = ""
+        if type(val) != str:
+            raise Exception("Only string type allowed")
+        core.pinggy_config_set_haproxy(self.__configRef, val)
+
+
 def start_tunnel(
         forwardto: typing.Union[int, str] = 80,
         type: str = "http",
@@ -1369,6 +1385,7 @@ def start_tunnel(
         fullrequesturl: bool = False,
         allowpreflight: bool = False,
         reverseproxy: bool = True,
+        haproxy: str = "",
         serveraddress: str = "a.pinggy.io:443",
         udpforwardto: typing.Optional[typing.Union[int, str]] = None,
         localservertls: typing.Union[str, bool] = False,
@@ -1414,6 +1431,8 @@ def start_tunnel(
         allowpreflight: With this flag, pinggy detects and allow preflight request without processing so that the server can handle it.
 
         reverseproxy: Pinggy by default runs in reverse proxy mode. However, it can be turned off by setting this flag `False`
+
+        haproxy: HAProxy configuration string for the tunnel. Empty string (default) leaves it unset.
 
         serveraddress: User can set the server address to which pinggy would connect. Default: `a.pinggy.io:443`.
 
@@ -1465,6 +1484,7 @@ def start_tunnel(
     tun.fullrequesturl          = fullrequesturl
     tun.allowpreflight          = allowpreflight
     tun.reverseproxy            = reverseproxy
+    tun.haproxy                 = haproxy
     tun.webdebugger_port        = webdebuggerport
 
     # __start_tunnel(tun, webdebuggerport)
