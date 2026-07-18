@@ -1,3 +1,19 @@
+# Pinggy SDK 0.3.0
+
+Targets **libpinggy 0.3.0**. Adds HAProxy PROXY-protocol support; existing
+code is unaffected.
+
+## Highlights
+
+- **HAProxy PROXY protocol.** New `haproxy` option — set the
+  PROXY-protocol version to send to your local server, which is expected to
+  be a HAProxy (PROXY-protocol-aware) server so it sees the real client
+  address. Use the `Tunnel.haproxy` property or the `haproxy=""` keyword on
+  `pinggy.start_tunnel()`; an empty string (the default) disables it.
+- **libpinggy 0.3.0.** The bundled native library is updated from 0.1.6.
+
+---
+
 # Pinggy SDK 0.1.0
 
 This release rewires the Python SDK around **libpinggy 0.1.6**. The
