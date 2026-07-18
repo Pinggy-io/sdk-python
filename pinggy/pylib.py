@@ -1385,11 +1385,11 @@ def start_tunnel(
         fullrequesturl: bool = False,
         allowpreflight: bool = False,
         reverseproxy: bool = True,
-        haproxy: str = "",
         serveraddress: str = "a.pinggy.io:443",
         udpforwardto: typing.Optional[typing.Union[int, str]] = None,
         localservertls: typing.Union[str, bool] = False,
         autoreconnect: bool = False,
+        haproxy: str = "",
         eventclass = BaseTunnelHandler
 ):
     """
@@ -1432,14 +1432,14 @@ def start_tunnel(
 
         reverseproxy: Pinggy by default runs in reverse proxy mode. However, it can be turned off by setting this flag `False`
 
-        haproxy: HAProxy configuration string for the tunnel. Empty string (default) leaves it unset.
-
         serveraddress: User can set the server address to which pinggy would connect. Default: `a.pinggy.io:443`.
 
         udpforwardto: same as forwardto, however, it forwards a UDP destination alongside the primary forwarding.
                     Useful when one tunnel needs to expose both TCP and UDP. Use `start_udptunnel` for udp-only tunnels.
 
         autoreconnect: automatically reconnects when tunnel failes. It happens silently. So, to detect reconnection, one need to override the event handler.
+
+        haproxy: HAProxy configuration string for the tunnel. Empty string (default) leaves it unset.
 
         eventclass: event handler class. Object would be created for the tunnel.
     """
