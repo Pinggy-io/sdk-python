@@ -67,6 +67,7 @@ pinggy.start_tunnel(
     udpforwardto = None,
     localservertls = False,
     autoreconnect = False,
+    haproxy = "",
     eventclass = BaseTunnelHandler,
 ) -> Tunnel
 ```
@@ -91,6 +92,7 @@ pinggy.start_tunnel(
 | `udpforwardto`       | `int \| str`                        | `None`               | Add a parallel UDP forwarding alongside the primary (TCP/HTTP/TLS) one.                                                                              |
 | `localservertls`     | `bool \| str`                       | `False`              | Speak TLS to the local upstream. `True` uses SNI `localhost`; pass a string to override the SNI name.                                                |
 | `autoreconnect`      | `bool`                              | `False`              | Reconnect automatically on transient drops.                                                                                                          |
+| `haproxy`            | `str`                               | `""`                 | HAProxy PROXY-protocol version to send to the local server, which must be a HAProxy (PROXY-protocol) server. Empty (default) disables it.                                             |
 | `eventclass`         | subclass of `BaseTunnelHandler`     | `BaseTunnelHandler`  | Handler class instantiated for the tunnel. Override its methods, or use `tunnel.add_callback(...)` / `tunnel.on_<event> = ...` instead of subclassing. |
 
 **Returns:** a started `Tunnel`. Raises `RuntimeError` if the tunnel fails to start.
@@ -208,6 +210,12 @@ See <https://pinggy.io/docs/advanced/live_header/> for semantics.
 | Member                              | Description                                                                                                                            |
 | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | `localservertls` *(property)*       | Speak TLS to the local upstream. Set to a string to use it as the SNI name; set to a truthy non-string to default to `"localhost"`.    |
+
+### PROXY protocol
+
+| Member                              | Description                                                                                                                            |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `haproxy` *(property)*              | HAProxy PROXY-protocol version sent to the local server, which is expected to be a HAProxy server, so it receives the real client address. Empty string (default) disables it. |
 
 ### Web debugger
 

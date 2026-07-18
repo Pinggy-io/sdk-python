@@ -1354,6 +1354,22 @@ class Tunnel:
         core.pinggy_config_set_reverse_proxy(self.__configRef, reverseproxy)
 
 
+    @property
+    def haproxy(self):
+        """str: HAProxy PROXY-protocol version to send to the local server, which is expected to be a HAProxy server. Empty string (default) disables it."""
+        return core.pinggy_config_get_haproxy_len(self.__configRef)
+
+    @haproxy.setter
+    def haproxy(self, val: str):
+        if not self.__editableConfig:
+            raise Exception("Tunnel is already connected, no modification allowed")
+        if val is None:
+            val = ""
+        if type(val) != str:
+            raise Exception("Only string type allowed")
+        core.pinggy_config_set_haproxy(self.__configRef, val)
+
+
 def start_tunnel(
         forwardto: typing.Union[int, str] = 80,
         type: str = "http",
@@ -1373,6 +1389,7 @@ def start_tunnel(
         udpforwardto: typing.Optional[typing.Union[int, str]] = None,
         localservertls: typing.Union[str, bool] = False,
         autoreconnect: bool = False,
+        haproxy: str = "",
         eventclass = BaseTunnelHandler
 ):
     """
@@ -1422,6 +1439,8 @@ def start_tunnel(
 
         autoreconnect: automatically reconnects when tunnel failes. It happens silently. So, to detect reconnection, one need to override the event handler.
 
+        haproxy: HAProxy PROXY-protocol version sent to the local server, which is expected to be a HAProxy server. Empty string (default) disables it.
+
         eventclass: event handler class. Object would be created for the tunnel.
     """
 
@@ -1465,6 +1484,7 @@ def start_tunnel(
     tun.fullrequesturl          = fullrequesturl
     tun.allowpreflight          = allowpreflight
     tun.reverseproxy            = reverseproxy
+    tun.haproxy                 = haproxy
     tun.webdebugger_port        = webdebuggerport
 
     # __start_tunnel(tun, webdebuggerport)

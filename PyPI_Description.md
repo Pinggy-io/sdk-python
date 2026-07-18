@@ -9,8 +9,8 @@ to the public internet through a managed tunnel. Wraps the native
 `libpinggy` library with a small, ergonomic API.
 
 Supports HTTP, TCP, TLS, TLS-over-TCP, and UDP tunnels with multi-port
-forwarding, authentication, header rewriting, a built-in web debugger, and
-auto-reconnect.
+forwarding, authentication, header rewriting, a built-in web debugger,
+HAProxy PROXY-protocol support, and auto-reconnect.
 
 ## Installation
 

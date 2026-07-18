@@ -427,6 +427,11 @@ pinggy_config_set_webdebugger                                   = __getFromCDLLI
                                                                         pinggy_void_t,
                                                                         [pinggy_ref_t, pinggy_bool_t]
                                                                         )
+pinggy_config_set_haproxy                                       = __getFromCDLLIfSupported(
+                                                                        "pinggy_config_set_haproxy",
+                                                                        pinggy_void_t,
+                                                                        [pinggy_ref_t, pinggy_const_char_p_t]
+                                                                        )
 pinggy_config_get_server_address                                = __getFromCDLLIfSupported(
                                                                         "pinggy_config_get_server_address",
                                                                         pinggy_const_int_t,
@@ -628,7 +633,18 @@ pinggy_config_get_webdebugger                                   = __getFromCDLLI
                                                                         "pinggy_config_get_webdebugger",
                                                                         pinggy_bool_t,
                                                                         [pinggy_ref_t]
+                                                                        ) #
+pinggy_config_get_haproxy_len                                   = __getFromCDLLIfSupported(
+                                                                        "pinggy_config_get_haproxy_len",
+                                                                        pinggy_const_int_t,
+                                                                        [pinggy_ref_t, pinggy_capa_t, pinggy_char_p_t, pinggy_capa_p_t],
+                                                                        getstring=True
                                                                         )
+pinggy_config_get_haproxy                                       = __getFromCDLLIfSupported(
+                                                                        "pinggy_config_get_haproxy",
+                                                                        pinggy_bool_t,
+                                                                        [pinggy_ref_t]
+                                                                        ) #
 pinggy_tunnel_set_on_tunnel_established_callback                = __getFromCDLLIfSupported(
                                                                         "pinggy_tunnel_set_on_tunnel_established_callback",
                                                                         pinggy_bool_t,

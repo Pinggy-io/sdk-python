@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.3.0
+
+Targets **libpinggy 0.3.0** (up from 0.1.6).
+
+### Highlights
+
+- **HAProxy PROXY protocol**: new `haproxy` option — set the
+  PROXY-protocol version to send to the local server, which is expected to
+  be a HAProxy (PROXY-protocol-aware) server so it receives the real client
+  address. Available as the `Tunnel.haproxy` property and as a `haproxy=""`
+  keyword on `pinggy.start_tunnel()`; an empty string (the default)
+  disables it.
+- **libpinggy 0.3.0**: the bundled native library is updated from 0.1.6 to
+  0.3.0.
+
+---
+
 ## 0.1.0
 
 `pinggy` 0.1.0 targets **libpinggy 0.1.6** and rewrites a large part of the
